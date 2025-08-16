@@ -1,0 +1,29 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- 背景光晕效果 -->
+    <circle cx="100" cy="100" r="95" fill="url(#bgGlow)"/>
+
+    <!-- 背景圆形 -->
+    <circle cx="100" cy="100" r="90" fill="#f8f9fa" stroke="#eaecef" stroke-width="1"/>
+
+    <!-- 装饰性网格背景 -->
+    <path d="M10 100 H190 M100 10 V190" stroke="#f0f0f0" stroke-width="1" stroke-dasharray="4 2"/>
+
+    <!-- 主服务节点 -->
+    <rect x="60" y="60" width="80" height="80" rx="10" fill="url(#mainGradient)" filter="drop-shadow(0 4px 6px rgba(59, 174, 98, 0.2))"/>
+    <text x="100" y="105" font-family="Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle" fill="white">SOA</text>
+    <text x="100" y="125" font-family="Arial, sans-serif" font-size="8" text-anchor="middle" fill="white" opacity="0.8">Service</text>
+
+
+    <!-- 连接线路 - 象征服务间通信 -->
+    <path d="M90 90 L55 55 M110 90 L145 55 M90 130 L55 145 M110 130 L145 145"
+            stroke="url(#lineGradient)" stroke-width="2" stroke-linecap="round"
+            marker-end="url(#arrowhead)"/>
+
+    <!-- 定义渐变和标记 -->
+    <defs>
+        <linearGradient id="mainGradient" x1="70" y1="70" x2="130" y2="130" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#3C99CC"/>
+            <stop offset="1" stop-color="#6B57FF"/>
+        </linearGradient>
+    </defs>
+</svg>

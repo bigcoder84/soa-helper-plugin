@@ -1,0 +1,42 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
+    <id>cn.bigcoder.soa.tool.soa-helper</id>
+
+    <!-- Public plugin name should be written in Title Case.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name -->
+    <name>soa-helper</name>
+
+    <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
+    <vendor email="tianjindong98@qq.com" url="https://www.bigcoder.cn">HearingSmile</vendor>
+
+    <description>
+        <![CDATA[
+        1. Support the quick search for the implementation of SOA RPC methods in the project.
+        2. Support recording RPC jump history。
+        ]]>
+    </description>
+
+    <idea-version since-build="232.0"/>
+
+    <!-- Product and plugin compatibility requirements.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lang</depends>
+    <depends>com.intellij.modules.java</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="cn.bigcoder.soa.helper.activity.RpcMethodSearchPlugin"/>
+        <projectService serviceImplementation="cn.bigcoder.soa.helper.search.RpcMethodCache"/>
+        <projectService
+                serviceImplementation="cn.bigcoder.soa.helper.search.RpcMethodHistoryManager"/>
+    </extensions>
+
+    <actions>
+        <action id="RpcMethodSearchAction"
+                class="cn.bigcoder.soa.helper.action.SearchAction"
+                text="RPC Method Search" description="Search RPC method implementations">
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl BACK_SLASH"/>
+        </action>
+    </actions>
+</idea-plugin>
