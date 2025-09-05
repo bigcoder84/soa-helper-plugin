@@ -1,5 +1,6 @@
 package cn.bigcoder.soa.helper.search;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.IndexNotReadyException;
 import com.intellij.openapi.project.Project;
@@ -29,7 +30,7 @@ public class RpcMethodCache {
     private static final String BAIJI_CONTRACT_CLASS_NAME = "com.ctriposs.baiji.rpc.common.BaijiContract";
     private final Project project;
     private final Set<RpcMethodInfo> methodCache = new HashSet<>();
-    private boolean loadSuccess;
+    private boolean projectIndexReady;
     /**
      * 索引构建成功钩子
      */
@@ -59,8 +60,20 @@ public class RpcMethodCache {
         indexLoadHooks.remove(hookId);
     }
 
+    /**
+     * 异步线程刷新soa服务索引
+     */
+    public void asyncScanRpcMethods() {
+        RpcMethodCache thisCache = this;
+        ApplicationManager.getApplication().executeOnPooledThread(() ->
+                ApplicationManager.getApplication().runReadAction(thisCache::scanRpcMethods)
+        );
+    }
+
     public synchronized void scanRpcMethods() {
         methodCache.clear();
+        // 触发soa服务加载前置钩子
+        executeSoaMethodLoadBeforeHook();
         try {
             // 在 runWhenSmart 内部，索引已就绪
             JavaPsiFacade instance = JavaPsiFacade.getInstance(project);
@@ -68,17 +81,22 @@ public class RpcMethodCache {
             String[] allClassNames = cache.getAllClassNames();
 
             for (String className : allClassNames) {
-                PsiClass[] classes = cache.getClassesByName(className, ProjectScope.getProjectScope(project));
+                // 使用ProjectScope.getContentScope(project)只扫描工作区中的类，不扫描jar包
+                PsiClass[] classes = cache.getClassesByName(className, ProjectScope.getContentScope(project));
                 for (PsiClass psiClass : classes) {
                     if (psiClass == null) {
                         continue;
                     }
-                    if (hasAnnotatedInterface(psiClass, BAIJI_CONTRACT_CLASS_NAME)) {
+                    // 额外检查：确保类文件在工作区中，而不是在外部依赖中
+                    if (isInWorkspace(psiClass) && hasAnnotatedInterface(psiClass, BAIJI_CONTRACT_CLASS_NAME)) {
                         processRpcClass(psiClass);
                     }
                 }
             }
+            // 触发soa服务加载后置钩子
+            executeSoaMethodLoadAfterHook();
         } catch (IndexNotReadyException e) {
+            executeSoaMethodLoadAfterHook();
             // 索引未就绪时，不抛出异常，等待索引就绪后重试
             executeStartLoadIndexHook();
         }
@@ -88,12 +106,32 @@ public class RpcMethodCache {
      * 执行索引加载钩子
      */
     private void executeStartLoadIndexHook() {
-        loadSuccess = false;
+        projectIndexReady = false;
         for (IndexLoadHook indexLoadHook : indexLoadHooks.values()) {
-            indexLoadHook.startLoad();
+            indexLoadHook.beforeProjectIndexLoad();
         }
         afterExecuteScan();
     }
+
+    /**
+     * 执行索引加载钩子
+     */
+    private void executeSoaMethodLoadBeforeHook() {
+        for (IndexLoadHook indexLoadHook : indexLoadHooks.values()) {
+            indexLoadHook.beforeSoaMethodLoad();
+        }
+    }
+
+    /**
+     * 执行索引加载钩子
+     */
+    private void executeSoaMethodLoadAfterHook() {
+        for (IndexLoadHook indexLoadHook : indexLoadHooks.values()) {
+            indexLoadHook.afterSoaMethodLoad();
+        }
+    }
+
+
 
     /**
      * 检查类实现的接口是否带有指定注解
@@ -209,8 +247,8 @@ public class RpcMethodCache {
      *
      * @return
      */
-    public boolean isLoadSuccess() {
-        return loadSuccess;
+    public boolean isProjectIndexReady() {
+        return projectIndexReady;
     }
 
     private int calculateScore(RpcMethodInfo method, String query) {
@@ -272,8 +310,7 @@ public class RpcMethodCache {
     // 当文件变化时更新缓存
     public void updateCacheForFile(PsiFile file) {
         try {
-            if (file instanceof PsiJavaFile) {
-                PsiJavaFile javaFile = (PsiJavaFile) file;
+            if (file instanceof PsiJavaFile javaFile) {
                 for (PsiClass psiClass : javaFile.getClasses()) {
                     // 移除该类之前的所有方法
                     removeMethodsFromClass(psiClass.getQualifiedName());
@@ -299,6 +336,27 @@ public class RpcMethodCache {
         return false;
     }
 
+    /**
+     * 检查类是否在工作区中（不是外部依赖或jar包中的类）
+     * @param psiClass 要检查的类
+     * @return 如果类在工作区中返回true，否则返回false
+     */
+    private boolean isInWorkspace(PsiClass psiClass) {
+        if (psiClass == null || psiClass.getContainingFile() == null) {
+            return false;
+        }
+        
+        // 获取类的虚拟文件路径
+        String filePath = psiClass.getContainingFile().getVirtualFile().getPath();
+        
+        // 检查是否为Java源文件（.java文件）且不在jar包、构建输出目录或IDE配置目录中
+        return filePath.endsWith(".java") && 
+               !filePath.contains(".jar!") && 
+               !filePath.contains("/.idea/") &&
+               !filePath.contains("/out/") &&
+               !filePath.contains("/build/");
+    }
+
     private void removeMethodsFromClass(String className) {
         if (className == null) {
             return;
@@ -311,12 +369,13 @@ public class RpcMethodCache {
      * 索引加载完成后执行方法扫描
      */
     private void afterExecuteScan() {
+        RpcMethodCache thisCache = this;
         DumbService.getInstance(project).runWhenSmart(() -> {
-            this.scanRpcMethods();
-            loadSuccess = true;
+            projectIndexReady = true;
             for (IndexLoadHook indexLoadHook : indexLoadHooks.values()) {
-                indexLoadHook.loadSuccess();
+                indexLoadHook.afterProjectIndexLoad();
             }
+            thisCache.asyncScanRpcMethods();
         });
     }
 }

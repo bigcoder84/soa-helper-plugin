@@ -7,6 +7,8 @@ import cn.bigcoder.soa.helper.search.RpcMethodHistoryManager;
 import cn.bigcoder.soa.helper.search.RpcMethodInfo;
 import cn.bigcoder.soa.helper.util.KeywordUtil;
 import com.intellij.icons.AllIcons.Nodes;
+import com.intellij.icons.AllIcons;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.ui.components.JBList;
@@ -27,6 +29,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.swing.Action;
 import javax.swing.DefaultListCellRenderer;
+import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -42,8 +45,12 @@ public class RpcMethodSearchDialog extends DialogWrapper {
     private final RpcMethodCache cache;
     private JTextField searchField;
     private JBList<RpcMethodInfo> resultList;
+    private JButton refreshButton;
     private RpcMethodInfo selectedMethod;
-    private boolean isIndexReady;
+    /**
+     * 项目索引是否加载完成
+     */
+    private boolean projectIndexReady;
     private JLabel statusLabel;
     private JPanel centerPanel;
     private String loadIndexHookId;
@@ -66,24 +73,41 @@ public class RpcMethodSearchDialog extends DialogWrapper {
     public RpcMethodSearchDialog(Project project, RpcMethodCache cache) {
         super(project, false);
         this.cache = cache;
-        this.isIndexReady = cache.isLoadSuccess();
+        this.projectIndexReady = cache.isProjectIndexReady();
         historyManager = RpcMethodHistoryManager.getInstance(project);
         setTitle("SOA RPC Method Search");
         init();
         this.setSize(DEFAULT_WIDTH, DEFAULT_HEIGHT);
         this.loadIndexHookId = this.cache.registerIndexLoadHook(new IndexLoadHook() {
             @Override
-            public void loadSuccess() {
-                isIndexReady = true;
+            public void afterProjectIndexLoad() {
+                projectIndexReady = true;
                 refreshIndexLoading();
             }
 
             @Override
-            public void startLoad() {
+            public void beforeProjectIndexLoad() {
                 // 项目索引开始加载
-                isIndexReady = false;
+                projectIndexReady = false;
                 // 更新索引加载状态
                 refreshIndexLoading();
+            }
+
+
+            @Override
+            public void beforeSoaMethodLoad() {
+                searchField.setEnabled(false);
+                refreshButton.setEnabled(false);
+                setStatusText("正在加载soa服务方法索引...");
+                initResultList();
+            }
+
+            @Override
+            public void afterSoaMethodLoad() {
+                searchField.setEnabled(true);
+                refreshButton.setEnabled(true);
+                setStatusText("");
+                initResultList();
             }
         });
     }
@@ -104,7 +128,7 @@ public class RpcMethodSearchDialog extends DialogWrapper {
             @Override
             public void keyReleased(KeyEvent e) {
                 // 仅在输入框有文本时更新结果
-                if (isIndexReady) {
+                if (projectIndexReady) {
                     updateResults();
                 }
 
@@ -127,6 +151,21 @@ public class RpcMethodSearchDialog extends DialogWrapper {
         });
         searchPanel.add(searchField, BorderLayout.CENTER);
 
+        // 添加刷新按钮
+        refreshButton = new JButton(AllIcons.Actions.Refresh);
+        refreshButton.setToolTipText("重新构建索引");
+        // 移除按钮边框和外边距
+        refreshButton.setBorder(null);
+        refreshButton.setBorderPainted(false);
+        refreshButton.setContentAreaFilled(false);
+        refreshButton.setMargin(JBUI.emptyInsets());
+        // 设置刷新按钮的固定尺寸，使其高度与搜索框一致
+        refreshButton.setPreferredSize(new Dimension(30, searchField.getPreferredSize().height));
+        refreshButton.addActionListener(e -> {
+            cache.asyncScanRpcMethods();
+        });
+        searchPanel.add(refreshButton, BorderLayout.EAST);
+
         centerPanel.add(searchPanel, BorderLayout.NORTH);
 
         // 结果列表
@@ -135,8 +174,7 @@ public class RpcMethodSearchDialog extends DialogWrapper {
         resultList.setCellRenderer(new RpcMethodListCellRenderer(this));
         resultList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
-                RpcMethodInfo selected = resultList.getSelectedValue();
-                selectedMethod = selected;
+                selectedMethod = resultList.getSelectedValue();
             }
         });
 
@@ -197,14 +235,14 @@ public class RpcMethodSearchDialog extends DialogWrapper {
                             searchField.setText(text.substring(0, text.length() - 1));
                         }
                         // 仅在输入框有文本时更新结果
-                        if (isIndexReady) {
+                        if (projectIndexReady) {
                             updateResults();
                         }
                         e.consume();
                     } else if (Character.isLetterOrDigit(e.getKeyChar()) || Character.isWhitespace(e.getKeyChar())) {
                         searchField.setText(searchField.getText() + e.getKeyChar());
                         // 仅在输入框有文本时更新结果
-                        if (isIndexReady) {
+                        if (projectIndexReady) {
                             updateResults();
                         }
                     }
@@ -243,7 +281,7 @@ public class RpcMethodSearchDialog extends DialogWrapper {
      */
     private void refreshIndexLoading() {
         // 如果索引尚未准备好，启动加载
-        if (!isIndexReady) {
+        if (!projectIndexReady) {
             setStatusText("项目索引构建中，请稍后再试....");
             searchField.setEnabled(false);
         } else {
@@ -263,6 +301,7 @@ public class RpcMethodSearchDialog extends DialogWrapper {
         if (!history.isEmpty() && searchField.getText().isEmpty()) {
             List<RpcMethodInfo> rpcMethodInfos = cache.searchAll();
             if (CollectionUtils.isEmpty(rpcMethodInfos)) {
+                resultList.setListData(new RpcMethodInfo[0]);
                 return;
             }
             Map<String, RpcMethodInfo> cacheMap = rpcMethodInfos.stream()
@@ -352,8 +391,7 @@ public class RpcMethodSearchDialog extends DialogWrapper {
                 boolean cellHasFocus) {
             super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
 
-            if (value instanceof RpcMethodInfo) {
-                RpcMethodInfo method = (RpcMethodInfo) value;
+            if (value instanceof RpcMethodInfo method) {
                 String query = dialog.searchField.getText().toLowerCase();
                 String methodName = method.methodName();
                 String className = method.className();
@@ -376,9 +414,9 @@ public class RpcMethodSearchDialog extends DialogWrapper {
                 String highlightedMethodName = KeywordUtil.highlightMatches(methodName, query,
                         "<font style='background-color: #BA9752;color: black;'>", "</font>");
 
-                setText("<html><span>" + highlightedMethodName
-                        + "</span> <font color='gray' >of " + className
-                        + "</font></html>");
+                setText("<html><div style='white-space: nowrap; display: inline-block'><span>" + highlightedMethodName
+                        + "</span> <font color='gray'>of " + className
+                        + "</font></div></html>");
                 // 设置 IDEA 官方类图标
                 setIcon(Nodes.Method);
             }
