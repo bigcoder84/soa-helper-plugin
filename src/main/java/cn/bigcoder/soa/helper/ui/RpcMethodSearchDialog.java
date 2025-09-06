@@ -298,16 +298,18 @@ public class RpcMethodSearchDialog extends DialogWrapper {
     private void initResultList() {
         // 索引加载完成后显示历史记录
         List<RpcMethodHistoryInfo> history = historyManager.getHistories();
-        if (!history.isEmpty() && searchField.getText().isEmpty()) {
-            List<RpcMethodInfo> rpcMethodInfos = cache.searchAll();
-            if (CollectionUtils.isEmpty(rpcMethodInfos)) {
-                resultList.setListData(new RpcMethodInfo[0]);
-                return;
-            }
+        List<RpcMethodInfo> rpcMethodInfos = cache.searchAll();
+        if (CollectionUtils.isEmpty(rpcMethodInfos)) {
+            resultList.setListData(new RpcMethodInfo[0]);
+            return;
+        }
+
+        if (history.isEmpty()) {
+            resultList.setListData(rpcMethodInfos.toArray(new RpcMethodInfo[0]));
+        } else {
             Map<String, RpcMethodInfo> cacheMap = rpcMethodInfos.stream()
                     .collect(Collectors.toMap(e -> e.className() + "#" + e.methodName(), Function.identity(),
                             (o1, o2) -> o1));
-
             List<RpcMethodInfo> historyList = history.stream()
                     .map(e -> cacheMap.get(e.getClassName() + "#" + e.getMethodName()))
                     .filter(Objects::nonNull)
@@ -322,14 +324,13 @@ public class RpcMethodSearchDialog extends DialogWrapper {
             List<RpcMethodInfo> remainingMethods = rpcMethodInfos.stream()
                     .filter(e -> !historyKeys.contains(e.className() + "#" + e.methodName()))
                     .toList();
-
             // 合并历史方法和剩余方法
-            List<RpcMethodInfo> combinedList = new ArrayList<>();
-            combinedList.addAll(historyList);
+            List<RpcMethodInfo> combinedList = new ArrayList<>(historyList);
             // 添加空方法，用于分隔历史方法和剩余方法
-            combinedList.add(new RpcMethodInfo(PLUGIN_SEPARATOR, null, null, 0));
+            if (CollectionUtils.isNotEmpty(historyList)) {
+                combinedList.add(new RpcMethodInfo(PLUGIN_SEPARATOR, null, null, 0));
+            }
             combinedList.addAll(remainingMethods);
-
             resultList.setListData(combinedList.toArray(new RpcMethodInfo[0]));
         }
     }
