@@ -35,9 +35,7 @@ public class FileChangeListener implements BulkFileListener {
                 .filter(event -> event.getFile() != null && event.getFile().getName().endsWith(".java")).toList();
         // 判断是否重新扫描整个项目
         if (checkFullScan(events)) {
-            ApplicationManager.getApplication().executeOnPooledThread(() ->
-                    ApplicationManager.getApplication().runReadAction(cache::scanRpcMethods)
-            );
+            cache.asyncScanRpcMethods();
         } else {
             // 单独的文件变更事件
             for (VFileEvent event : events) {

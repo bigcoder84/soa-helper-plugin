@@ -8,13 +8,23 @@ package cn.bigcoder.soa.helper.search;
 public interface IndexLoadHook {
 
     /**
-     * 索引加载开始
+     * 项目索引加载开始
      */
-    void startLoad();
+    void beforeProjectIndexLoad();
 
     /**
-     * 索引加载成功
+     * 项目索引加载完成
      */
-    void loadSuccess();
+    void afterProjectIndexLoad();
 
+    /**
+     * 加载服务方法索引前置钩子
+     */
+    void beforeSoaMethodLoad();
+
+
+    /**
+     * 加载服务方法索引后置钩子
+     */
+    void afterSoaMethodLoad();
 }

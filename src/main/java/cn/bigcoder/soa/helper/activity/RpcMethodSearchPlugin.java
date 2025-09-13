@@ -10,12 +10,10 @@ import org.jetbrains.annotations.Nullable;
 
 public class RpcMethodSearchPlugin implements ProjectActivity {
 
-    private RpcMethodCache cache;
-
     @Override
     public @Nullable Object execute(@NotNull Project project, @NotNull Continuation<? super kotlin.Unit> continuation) {
         // 初始化缓存
-        cache = RpcMethodCache.getInstance(project);
+        RpcMethodCache cache = RpcMethodCache.getInstance(project);
         cache.initialize();
 
         // 注册文件变化监听器
