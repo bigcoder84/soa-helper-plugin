@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "cn.bigcoder.soa.tool"
-version = "1.0.1"
+version = "1.0.2"
 
 // Add IntelliJ Platform SDK dependencies
 repositories {

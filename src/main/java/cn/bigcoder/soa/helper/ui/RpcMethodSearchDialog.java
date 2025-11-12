@@ -8,7 +8,6 @@ import cn.bigcoder.soa.helper.search.RpcMethodInfo;
 import cn.bigcoder.soa.helper.util.KeywordUtil;
 import com.intellij.icons.AllIcons.Nodes;
 import com.intellij.icons.AllIcons;
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.ui.components.JBList;
@@ -25,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.swing.Action;
@@ -42,6 +42,7 @@ import org.jetbrains.annotations.Nullable;
 
 public class RpcMethodSearchDialog extends DialogWrapper {
 
+    private final Project project;
     private final RpcMethodCache cache;
     private JTextField searchField;
     private JBList<RpcMethodInfo> resultList;
@@ -56,6 +57,11 @@ public class RpcMethodSearchDialog extends DialogWrapper {
     private String loadIndexHookId;
     private final RpcMethodHistoryManager historyManager;
 
+    /**
+     * 存储每个项目的最后搜索词
+     */
+    private static final Map<String, String> lastSearchQueries = new ConcurrentHashMap<>();
+    
     private static final String PLUGIN_SEPARATOR = "%&PLUGIN_SEPARATOR&%";
     /**
      * 默认宽度，可按需调整
@@ -72,6 +78,7 @@ public class RpcMethodSearchDialog extends DialogWrapper {
 
     public RpcMethodSearchDialog(Project project, RpcMethodCache cache) {
         super(project, false);
+        this.project = project;
         this.cache = cache;
         this.projectIndexReady = cache.isProjectIndexReady();
         historyManager = RpcMethodHistoryManager.getInstance(project);
@@ -124,6 +131,7 @@ public class RpcMethodSearchDialog extends DialogWrapper {
         searchField = new JTextField();
         searchField.setFont(searchField.getFont().deriveFont(Font.PLAIN, DEFAULT_FONT_SIZE));
         searchField.setBorder(null);
+        
         searchField.addKeyListener(new KeyAdapter() {
             @Override
             public void keyReleased(KeyEvent e) {
@@ -267,11 +275,23 @@ public class RpcMethodSearchDialog extends DialogWrapper {
 
         centerPanel.add(contentPanel, BorderLayout.CENTER);
 
-        // 确保搜索框获取焦点
-        searchField.requestFocusInWindow();
-
         // 启动索引加载
         refreshIndexLoading();
+        
+        // 填入上一次的搜索词（需要在 resultList 初始化之后）
+        String lastQuery = lastSearchQueries.get(getProjectKey());
+        if (lastQuery != null && !lastQuery.isEmpty()) {
+            searchField.setText(lastQuery);
+            // 如果有搜索词且索引已准备好，立即显示搜索结果
+            if (projectIndexReady) {
+                updateResults();
+            }
+            // 选中全部文本，方便用户直接输入新内容
+            searchField.selectAll();
+        }
+        
+        // 确保搜索框获取焦点
+        searchField.requestFocusInWindow();
 
         return centerPanel;
     }
@@ -428,9 +448,33 @@ public class RpcMethodSearchDialog extends DialogWrapper {
 
     @Override
     public void dispose() {
+        // 保存或清除当前搜索词
+        String currentQuery = searchField.getText();
+        String projectKey = getProjectKey();
+        
+        if (currentQuery != null && !currentQuery.trim().isEmpty()) {
+            // 如果搜索词不为空，保存它
+            lastSearchQueries.put(projectKey, currentQuery.trim());
+        } else {
+            // 如果搜索词为空，清除记录，下次打开不再自动填充
+            lastSearchQueries.remove(projectKey);
+        }
+        
         // 调用父类的dispose()方法，确保基础资源被正确释放
         super.dispose();
         // 删除钩子，防止内存泄露
         cache.removeIndexLoadHook(loadIndexHookId);
+    }
+    
+    /**
+     * 获取项目唯一标识，用于存储搜索词
+     */
+    private String getProjectKey() {
+        if (project == null) {
+            return "default";
+        }
+        // 使用项目路径作为唯一标识
+        String basePath = project.getBasePath();
+        return basePath != null ? basePath : project.getName();
     }
 }

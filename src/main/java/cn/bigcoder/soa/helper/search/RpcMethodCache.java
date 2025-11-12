@@ -1,10 +1,12 @@
 package cn.bigcoder.soa.helper.search;
 
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.progress.ProgressIndicator;
+import com.intellij.openapi.progress.ProgressManager;
+import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.IndexNotReadyException;
 import com.intellij.openapi.project.Project;
-import com.intellij.psi.JavaPsiFacade;
 import com.intellij.psi.PsiAnnotation;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiFile;
@@ -12,6 +14,8 @@ import com.intellij.psi.PsiJavaFile;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.search.ProjectScope;
 import com.intellij.psi.search.PsiShortNamesCache;
+import org.jetbrains.annotations.NotNull;
+
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -64,35 +68,80 @@ public class RpcMethodCache {
      * 异步线程刷新soa服务索引
      */
     public void asyncScanRpcMethods() {
-        RpcMethodCache thisCache = this;
-        ApplicationManager.getApplication().executeOnPooledThread(() ->
-                ApplicationManager.getApplication().runReadAction(thisCache::scanRpcMethods)
-        );
+        // 使用 Task.Backgroundable 提供可取消的后台任务和进度显示
+        ProgressManager.getInstance().run(new Task.Backgroundable(project, "正在扫描 SOA 接口...", true) {
+            @Override
+            public void run(@NotNull ProgressIndicator indicator) {
+                // 分批执行，每批都在独立的读操作中，避免长时间持有读锁
+                scanRpcMethodsWithProgressBatched(indicator);
+            }
+        });
     }
 
-    public synchronized void scanRpcMethods() {
-        methodCache.clear();
+    /**
+     * 带进度指示器的扫描方法 - 分批处理，定期释放读锁
+     */
+    private void scanRpcMethodsWithProgressBatched(ProgressIndicator indicator) {
+        synchronized (this) {
+            methodCache.clear();
+        }
+        
         // 触发soa服务加载前置钩子
         executeSoaMethodLoadBeforeHook();
+        
         try {
-            // 在 runWhenSmart 内部，索引已就绪
-            JavaPsiFacade instance = JavaPsiFacade.getInstance(project);
-            PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
-            String[] allClassNames = cache.getAllClassNames();
-
-            for (String className : allClassNames) {
-                // 使用ProjectScope.getContentScope(project)只扫描工作区中的类，不扫描jar包
-                PsiClass[] classes = cache.getClassesByName(className, ProjectScope.getContentScope(project));
-                for (PsiClass psiClass : classes) {
-                    if (psiClass == null) {
-                        continue;
-                    }
-                    // 额外检查：确保类文件在工作区中，而不是在外部依赖中
-                    if (isInWorkspace(psiClass) && hasAnnotatedInterface(psiClass, BAIJI_CONTRACT_CLASS_NAME)) {
-                        processRpcClass(psiClass);
-                    }
+            indicator.setText("正在获取项目中的所有类...");
+            
+            // 先获取所有类名（快速操作）
+            String[] allClassNames = ApplicationManager.getApplication().runReadAction(
+                (com.intellij.openapi.util.Computable<String[]>) () -> {
+                    PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
+                    return cache.getAllClassNames();
                 }
+            );
+            
+            indicator.setText("soa-helper 正在扫描 " + allClassNames.length + " 个类...");
+            indicator.setIndeterminate(false);
+            
+            // 分批处理，每批100个类，处理完一批后释放读锁
+            int batchSize = 100;
+            for (int batchStart = 0; batchStart < allClassNames.length; batchStart += batchSize) {
+                // 检查任务是否被取消
+                if (indicator.isCanceled()) {
+                    executeSoaMethodLoadAfterHook();
+                    return;
+                }
+                
+                int batchEnd = Math.min(batchStart + batchSize, allClassNames.length);
+                int finalBatchStart = batchStart;
+                
+                // 每批在单独的读操作中处理，处理完立即释放读锁
+                ApplicationManager.getApplication().runReadAction(() -> {
+                    PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
+                    
+                    for (int i = finalBatchStart; i < batchEnd; i++) {
+                        // 更新进度
+                        indicator.setFraction((double) i / allClassNames.length);
+                        String className = allClassNames[i];
+                        
+                        // 使用ProjectScope.getContentScope(project)只扫描工作区中的类，不扫描jar包
+                        PsiClass[] classes = cache.getClassesByName(className, ProjectScope.getContentScope(project));
+                        for (PsiClass psiClass : classes) {
+                            if (psiClass == null) {
+                                continue;
+                            }
+                            // 额外检查：确保类文件在工作区中，而不是在外部依赖中
+                            if (isInWorkspace(psiClass) && hasAnnotatedInterface(psiClass, BAIJI_CONTRACT_CLASS_NAME)) {
+                                indicator.setText2("发现 SOA 接口: " + className);
+                                processRpcClass(psiClass);
+                            }
+                        }
+                    }
+                });
+                // 读操作结束后，读锁被释放，UI 线程可以获取写锁进行操作
             }
+            
+            indicator.setText("扫描完成，共找到 " + methodCache.size() + " 个 SOA 方法");
             // 触发soa服务加载后置钩子
             executeSoaMethodLoadAfterHook();
         } catch (IndexNotReadyException e) {
