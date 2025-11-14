@@ -1,5 +1,6 @@
 package cn.bigcoder.soa.helper.search;
 
+import cn.bigcoder.soa.helper.util.SoaMethodUtil;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
@@ -7,7 +8,6 @@ import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.IndexNotReadyException;
 import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiAnnotation;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiJavaFile;
@@ -31,7 +31,7 @@ public class RpcMethodCache {
 
     // 移除静态单例实例，改为按项目存储的实例映射
     private static final Map<Project, RpcMethodCache> instances = new ConcurrentHashMap<>();
-    private static final String BAIJI_CONTRACT_CLASS_NAME = "com.ctriposs.baiji.rpc.common.BaijiContract";
+
     private final Project project;
     private final Set<RpcMethodInfo> methodCache = new HashSet<>();
     private boolean projectIndexReady;
@@ -99,8 +99,8 @@ public class RpcMethodCache {
                     return cache.getAllClassNames();
                 }
             );
-            
-            indicator.setText("soa-helper 正在扫描 " + allClassNames.length + " 个类...");
+
+            indicator.setText("soa-helper 正在扫描...");
             indicator.setIndeterminate(false);
             
             // 分批处理，每批100个类，处理完一批后释放读锁
@@ -131,7 +131,7 @@ public class RpcMethodCache {
                                 continue;
                             }
                             // 额外检查：确保类文件在工作区中，而不是在外部依赖中
-                            if (isInWorkspace(psiClass) && hasAnnotatedInterface(psiClass, BAIJI_CONTRACT_CLASS_NAME)) {
+                            if (SoaMethodUtil.isSoaClass(psiClass)) {
                                 indicator.setText2("发现 SOA 接口: " + className);
                                 processRpcClass(psiClass);
                             }
@@ -180,69 +180,19 @@ public class RpcMethodCache {
         }
     }
 
-
-
-    /**
-     * 检查类实现的接口是否带有指定注解
-     *
-     * @param psiClass 要检查的类
-     * @return 如果类实现的接口带有指定注解则返回 true，否则返回 false
-     */
-    private boolean hasAnnotatedInterface(PsiClass psiClass, String annotaionQualifyName) {
-        for (PsiClass iface : psiClass.getInterfaces()) {
-            if (iface.hasAnnotation(annotaionQualifyName)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private void processRpcClass(PsiClass psiClass) {
         // 处理类中的所有方法
         for (PsiMethod method : psiClass.getMethods()) {
-            // 有 Override 注解的方法默认为RPC方法，因为分支切换时新版本jar包可能没加载好，只判断isRpcMethod会遗漏方法
-            boolean rpcMethod = isInterfaceMethod(method);
-            if (!rpcMethod) {
-                rpcMethod = isRpcMethod(method);
-            }
-            if (rpcMethod) {
+            // 使用宽松模式判断：有 Override 注解的方法默认为RPC方法
+            // 因为分支切换时新版本jar包可能没加载好，只判断严格模式会遗漏方法
+            if (SoaMethodUtil.isSoaMethodLoose(method)) {
                 RpcMethodInfo methodInfo = new RpcMethodInfo(method.getName(), psiClass.getQualifiedName(),
                         method.getContainingFile().getVirtualFile().getPath(), method.getTextOffset());
 
                 // 添加到缓存，使用方法名作为键，支持模糊搜索
                 addToCache(methodInfo);
-
-                // 也可以添加类名作为键，支持按类名搜索
-                if (psiClass.getName() != null) {
-                    addToCache(methodInfo);
-                }
             }
         }
-    }
-
-    private boolean isInterfaceMethod(PsiMethod method) {
-        PsiAnnotation annotation = method.getAnnotation("java.lang.Override");
-        return annotation != null;
-    }
-
-    private boolean isRpcMethod(PsiMethod method) {
-        // 检查方法是否来自带有BaijiContract注解的接口
-        PsiClass containingClass = method.getContainingClass();
-        if (containingClass == null) {
-            return false;
-        }
-
-        for (PsiClass interfaceClass : containingClass.getInterfaces()) {
-            if (interfaceClass.hasAnnotation(BAIJI_CONTRACT_CLASS_NAME)) {
-                // 检查方法是否在接口中定义
-                for (PsiMethod psiMethod : interfaceClass.getMethods()) {
-                    if (psiMethod.getName().equals(method.getName())) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
     }
 
     private void addToCache(RpcMethodInfo methodInfo) {
@@ -365,7 +315,7 @@ public class RpcMethodCache {
                     removeMethodsFromClass(psiClass.getQualifiedName());
 
                     // 如果是RPC实现类，重新添加其方法
-                    if (isRpcImplementationClass(psiClass)) {
+                    if (SoaMethodUtil.isImplementBaijiContractAnnotatedInterface(psiClass)) {
                         processRpcClass(psiClass);
                     }
                 }
@@ -373,37 +323,10 @@ public class RpcMethodCache {
         } catch (IndexNotReadyException e) {
             // 索引未就绪时，不抛出异常，等待索引就绪后重试
             executeStartLoadIndexHook();
+        } catch (Exception e) {
+            // 捕获其他异常（如 Outdated stub），静默处理
+            // 这些情况通常是暂时的，下次文件变更会重新触发
         }
-    }
-
-    private boolean isRpcImplementationClass(PsiClass psiClass) {
-        for (PsiClass iface : psiClass.getInterfaces()) {
-            if (iface.hasAnnotation(BAIJI_CONTRACT_CLASS_NAME)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * 检查类是否在工作区中（不是外部依赖或jar包中的类）
-     * @param psiClass 要检查的类
-     * @return 如果类在工作区中返回true，否则返回false
-     */
-    private boolean isInWorkspace(PsiClass psiClass) {
-        if (psiClass == null || psiClass.getContainingFile() == null) {
-            return false;
-        }
-        
-        // 获取类的虚拟文件路径
-        String filePath = psiClass.getContainingFile().getVirtualFile().getPath();
-        
-        // 检查是否为Java源文件（.java文件）且不在jar包、构建输出目录或IDE配置目录中
-        return filePath.endsWith(".java") && 
-               !filePath.contains(".jar!") && 
-               !filePath.contains("/.idea/") &&
-               !filePath.contains("/out/") &&
-               !filePath.contains("/build/");
     }
 
     private void removeMethodsFromClass(String className) {
