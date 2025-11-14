@@ -30,6 +30,18 @@
         <projectService serviceImplementation="cn.bigcoder.soa.helper.search.RpcMethodCache"/>
         <projectService
                 serviceImplementation="cn.bigcoder.soa.helper.search.RpcMethodHistoryManager"/>
+        <!-- SOA Helper 设置 -->
+        <applicationService serviceImplementation="cn.bigcoder.soa.helper.settings.SoaHelperSettings"/>
+        <applicationConfigurable 
+                parentId="tools"
+                instance="cn.bigcoder.soa.helper.settings.SoaHelperSettingsConfigurable"
+                id="cn.bigcoder.soa.helper.settings.SoaHelperSettingsConfigurable"
+                displayName="SOA Helper"/>
+        <!-- 通知组注册 -->
+        <notificationGroup id="SOA Helper" displayType="BALLOON"/>
+        <!-- SOA 日志跳转 LineMarker -->
+        <codeInsight.lineMarkerProvider language="JAVA"
+                                        implementationClass="cn.bigcoder.soa.helper.marker.SoaLogLineMarkerProvider"/>
     </extensions>
 
     <actions>
