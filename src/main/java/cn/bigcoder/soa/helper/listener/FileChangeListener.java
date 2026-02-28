@@ -12,6 +12,7 @@ import com.intellij.openapi.vfs.newvfs.events.VFileMoveEvent;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.util.Alarm;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -20,10 +21,14 @@ public class FileChangeListener implements BulkFileListener {
 
     private final Project project;
     private final RpcMethodCache cache;
+    private final Alarm debounceAlarm;
+    // 防抖延迟时间（毫秒）
+    private static final int DEBOUNCE_DELAY_MS = 2000;
 
     public FileChangeListener(Project project, RpcMethodCache cache) {
         this.project = project;
         this.cache = cache;
+        this.debounceAlarm = new Alarm(Alarm.ThreadToUse.POOLED_THREAD, project);
         // 通过全局消息总线订阅
         project.getMessageBus().connect().subscribe(VirtualFileManager.VFS_CHANGES, this);
     }
@@ -33,9 +38,17 @@ public class FileChangeListener implements BulkFileListener {
         // 只处理java文件变更
         events = events.stream()
                 .filter(event -> event.getFile() != null && event.getFile().getName().endsWith(".java")).toList();
+        
+        if (events.isEmpty()) {
+            return;
+        }
+        
         // 判断是否重新扫描整个项目
         if (checkFullScan(events)) {
-            cache.asyncScanRpcMethods();
+            // 取消之前的扫描任务
+            debounceAlarm.cancelAllRequests();
+            // 延迟执行扫描，防抖
+            debounceAlarm.addRequest(() -> cache.asyncScanRpcMethods(), DEBOUNCE_DELAY_MS);
         } else {
             // 单独的文件变更事件
             for (VFileEvent event : events) {
@@ -57,7 +70,8 @@ public class FileChangeListener implements BulkFileListener {
                 return true;
             }
         }
-        return events.size() >= 10;
+        // 提高阈值，从 10 提高到 50，减少不必要的全量扫描
+        return events.size() >= 50;
     }
 
     /**
