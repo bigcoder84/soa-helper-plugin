@@ -1,0 +1,39 @@
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- 背景光晕效果 -->
+    <circle cx="8" cy="8" r="7.6" fill="url(#logBgGlow)"/>
+
+    <!-- 背景圆形 -->
+    <circle cx="8" cy="8" r="7.2" fill="#fffdf7" stroke="#f0e6d0" stroke-width="0.08"/>
+
+    <!-- 装饰性网格背景 -->
+    <path d="M0.8 8 H15.2 M8 0.8 V15.2" stroke="#f5f0e8" stroke-width="0.08" stroke-dasharray="0.32 0.16"/>
+
+    <!-- 主节点 -->
+    <rect x="4.8" y="4.8" width="6.4" height="6.4" rx="0.8" fill="url(#logMainGradient)" filter="drop-shadow(0 0.32px 0.48px rgba(230, 126, 34, 0.3))"/>
+    <text x="8" y="8.4" font-family="Arial, sans-serif" font-size="1.28" font-weight="bold" text-anchor="middle" fill="white">LOG</text>
+    <text x="8" y="10" font-family="Arial, sans-serif" font-size="0.64" text-anchor="middle" fill="white" opacity="0.8">→</text>
+
+    <!-- 连接线路 -->
+    <path d="M7.2 7.2 L4.4 4.4 M8.8 7.2 L11.6 4.4 M7.2 10.4 L4.4 11.6 M8.8 10.4 L11.6 11.6"
+            stroke="url(#logLineGradient)" stroke-width="0.16" stroke-linecap="round"
+            marker-end="url(#logArrowhead)"/>
+
+    <!-- 定义渐变和标记 -->
+    <defs>
+        <linearGradient id="logMainGradient" x1="5.6" y1="5.6" x2="10.4" y2="10.4" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#E67E22"/>
+            <stop offset="1" stop-color="#D35400"/>
+        </linearGradient>
+        <linearGradient id="logLineGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0" stop-color="#E67E22"/>
+            <stop offset="1" stop-color="#D35400"/>
+        </linearGradient>
+        <marker id="logArrowhead" markerWidth="2" markerHeight="2" refX="1" refY="1" orient="auto">
+            <polygon points="0 0, 2 1, 0 2" fill="#D35400" opacity="0.7"/>
+        </marker>
+        <radialGradient id="logBgGlow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+            <stop offset="0%" stop-color="rgba(230, 126, 34, 0.1)"/>
+            <stop offset="100%" stop-color="rgba(230, 126, 34, 0)"/>
+        </radialGradient>
+    </defs>
+</svg>

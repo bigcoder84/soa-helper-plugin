@@ -27,6 +27,8 @@ public class SoaHelperSettings implements PersistentStateComponent<SoaHelperSett
     
     private List<JumpOption> jumpOptions = new ArrayList<>();
     
+    private List<LogJumpOption> logJumpOptions = new ArrayList<>();
+    
     public SoaHelperSettings() {
         // 初始化默认配置
         initDefaultOptions();
@@ -81,6 +83,27 @@ public class SoaHelperSettings implements PersistentStateComponent<SoaHelperSett
     public List<JumpOption> getEnabledJumpOptions() {
         List<JumpOption> enabled = new ArrayList<>();
         for (JumpOption option : jumpOptions) {
+            if (option.isEnabled()) {
+                enabled.add(option);
+            }
+        }
+        return enabled;
+    }
+    
+    public List<LogJumpOption> getLogJumpOptions() {
+        return logJumpOptions;
+    }
+    
+    public void setLogJumpOptions(List<LogJumpOption> logJumpOptions) {
+        this.logJumpOptions = logJumpOptions;
+    }
+    
+    /**
+     * 获取所有启用的日志跳转选项
+     */
+    public List<LogJumpOption> getEnabledLogJumpOptions() {
+        List<LogJumpOption> enabled = new ArrayList<>();
+        for (LogJumpOption option : logJumpOptions) {
             if (option.isEnabled()) {
                 enabled.add(option);
             }
