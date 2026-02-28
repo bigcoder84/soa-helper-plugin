@@ -1,0 +1,35 @@
+src/main/java/cn/bigcoder/soa/helper/marker/LogMethodJumpMarkerProvider.java
+  97985b882165d7b1 1-261
+src/main/java/cn/bigcoder/soa/helper/settings/SoaHelperSettings.java
+  97985b882165d7b1 30-31,92-112
+src/main/resources/META-INF/plugin.xml
+  97985b882165d7b1 45-47
+src/main/java/cn/bigcoder/soa/helper/ui/SoaHelperSettingsComponent.java
+  97985b882165d7b1 4,17,19-21,32-33,40,75-108,120,124-127,138-140,153-154,159-160,204-245,248-249,258,264,270,273-274,304,379-480,487-488,575,594,613,632-821,823-831
+src/main/java/cn/bigcoder/soa/helper/settings/LogJumpOption.java
+  97985b882165d7b1 1-135
+src/main/java/cn/bigcoder/soa/helper/util/MethodCallParamResolver.java
+  97985b882165d7b1 1-161
+src/main/resources/icons/logMarker.svg
+  97985b882165d7b1 1-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "0.1.0-beta",
+  "base_commit_sha": "48ec5f763bb62ee31dd249e09bf357c428408853",
+  "prompts": {
+    "97985b882165d7b1": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_35cd62fa2ffeIejRj91FsP7TkS",
+        "model": "github-copilot/claude-opus-4.6"
+      },
+      "human_author": "bigcoder84 <bigcoder84@gmail.com>",
+      "messages": [],
+      "total_additions": 1045,
+      "total_deletions": 44,
+      "accepted_lines": 1044,
+      "overriden_lines": 0
+    }
+  }
+}
