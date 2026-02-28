@@ -1,0 +1,23 @@
+src/main/java/cn/bigcoder/soa/helper/util/MethodCallParamResolver.java
+  230539c66dd0c7c1 4-6,8,20-21,25-28,43,50-60,71,75,78-82,90,95,101,108-169,182,190,204,214
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "0.1.0-beta",
+  "base_commit_sha": "10dfb699cb203caea3f66d671bcf269ef62d5f5d",
+  "prompts": {
+    "230539c66dd0c7c1": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_35b2804efffeTUtFOeFRHOHt34",
+        "model": "github-copilot/claude-opus-4.6"
+      },
+      "human_author": "bigcoder84 <bigcoder84@gmail.com>",
+      "messages": [],
+      "total_additions": 106,
+      "total_deletions": 11,
+      "accepted_lines": 106,
+      "overriden_lines": 0
+    }
+  }
+}
