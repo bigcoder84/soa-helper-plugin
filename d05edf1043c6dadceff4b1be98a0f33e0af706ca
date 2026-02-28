@@ -1,0 +1,34 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "0.1.0-beta",
+  "base_commit_sha": "d05edf1043c6dadceff4b1be98a0f33e0af706ca",
+  "prompts": {
+    "97985b882165d7b1": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_35cd62fa2ffeIejRj91FsP7TkS",
+        "model": "github-copilot/claude-opus-4.6"
+      },
+      "human_author": "bigcoder84 <bigcoder84@gmail.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 175,
+      "overriden_lines": 0
+    },
+    "add8829238c86c70": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_35c735f72ffe3kut3SgtjJnGwy",
+        "model": "github-copilot/claude-opus-4.6"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 63,
+      "overriden_lines": 0
+    }
+  }
+}
