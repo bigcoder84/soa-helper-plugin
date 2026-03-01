@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,6 +32,13 @@ public class SoaHelperSettingsComponent {
     private final JBTable table;
     private final LogJumpOptionsTableModel logTableModel;
     private final JBTable logTable;
+    
+    // 扩展字段配置
+    private final JCheckBox extendedFieldsCheckBox;
+    private final JTextField momBaseUrlField;
+    private final JPasswordField momAccessTokenField;
+    private final JSpinner momTimeoutSpinner;
+    private final JSpinner momCacheTtlSpinner;
     
     public SoaHelperSettingsComponent() {
         // 初始化总开关复选框
@@ -106,6 +114,56 @@ public class SoaHelperSettingsComponent {
         
         JPanel logTablePanel = logDecorator.createPanel();
         
+        // ===== 扩展字段配置 =====
+        extendedFieldsCheckBox = new JCheckBox("启用扩展字段（projectId、momVersion、serviceCode）", false);
+        extendedFieldsCheckBox.setToolTipText("启用后可在 URL 模板中使用契约平台提供的扩展变量");
+        
+        momBaseUrlField = new JTextField(40);
+        momBaseUrlField.setToolTipText("契约平台 API 基础地址，如：http://xxx.com");
+        
+        momAccessTokenField = new JPasswordField(40);
+        momAccessTokenField.setToolTipText("契约平台 Access Token");
+        
+        momTimeoutSpinner = new JSpinner(new SpinnerNumberModel(5000, 1000, 30000, 500));
+        momTimeoutSpinner.setToolTipText("API 请求超时时间（毫秒），建议 3000-10000");
+        
+        momCacheTtlSpinner = new JSpinner(new SpinnerNumberModel(300, 0, 86400, 60));
+        momCacheTtlSpinner.setToolTipText("缓存有效时间（秒），设为 0 表示不缓存");
+        
+        // 联动：开关控制子字段的 enabled 状态
+        extendedFieldsCheckBox.addActionListener(e -> updateExtendedFieldsEnabled());
+        updateExtendedFieldsEnabled();
+        
+        // 构建扩展字段面板
+        JPanel extFieldsPanel = new JPanel(new GridBagLayout());
+        extFieldsPanel.setBorder(BorderFactory.createTitledBorder("扩展字段配置"));
+        GridBagConstraints eGbc = new GridBagConstraints();
+        eGbc.insets = new Insets(4, 8, 4, 8);
+        eGbc.anchor = GridBagConstraints.WEST;
+        
+        eGbc.gridx = 0; eGbc.gridy = 0; eGbc.gridwidth = 2;
+        extFieldsPanel.add(extendedFieldsCheckBox, eGbc);
+        
+        eGbc.gridx = 0; eGbc.gridy = 1; eGbc.gridwidth = 1; eGbc.weightx = 0;
+        extFieldsPanel.add(new JLabel("契约平台地址："), eGbc);
+        eGbc.gridx = 1; eGbc.weightx = 1; eGbc.fill = GridBagConstraints.HORIZONTAL;
+        extFieldsPanel.add(momBaseUrlField, eGbc);
+        
+        eGbc.gridx = 0; eGbc.gridy = 2; eGbc.weightx = 0; eGbc.fill = GridBagConstraints.NONE;
+        extFieldsPanel.add(new JLabel("Access Token："), eGbc);
+        eGbc.gridx = 1; eGbc.weightx = 1; eGbc.fill = GridBagConstraints.HORIZONTAL;
+        extFieldsPanel.add(momAccessTokenField, eGbc);
+        
+        eGbc.gridx = 0; eGbc.gridy = 3; eGbc.weightx = 0; eGbc.fill = GridBagConstraints.NONE;
+        extFieldsPanel.add(new JLabel("请求超时(ms)："), eGbc);
+        eGbc.gridx = 1; eGbc.weightx = 0; eGbc.fill = GridBagConstraints.NONE;
+        extFieldsPanel.add(momTimeoutSpinner, eGbc);
+        
+        eGbc.gridx = 0; eGbc.gridy = 4; eGbc.weightx = 0;
+        extFieldsPanel.add(new JLabel("缓存时间(秒)："), eGbc);
+        eGbc.gridx = 1; eGbc.weightx = 0;
+        extFieldsPanel.add(momCacheTtlSpinner, eGbc);
+        
         // 创建帮助文本
         JLabel helpLabel = new JLabel("<html><body style='width: 800px'>" +
             "<b>URL 模板语法说明：</b><br/>" +
@@ -120,6 +178,12 @@ public class SoaHelperSettingsComponent {
             "<b>SOA方法跳转 - 内置变量：</b><br/>" +
             "• <code>appId</code> - 应用ID，从 app.properties 或 app.id 文件读取<br/>" +
             "• <code>methodName</code> - SOA 方法名，如：getUserInfo<br/><br/>" +
+            
+            "<b>SOA方法跳转 - 扩展变量（需启用扩展字段）：</b><br/>" +
+            "• <code>projectId</code> - 契约平台项目ID<br/>" +
+            "• <code>momVersion</code> - 契约版本号<br/>" +
+            "• <code>serviceCode</code> - 服务代码<br/>" +
+            "<i>注：扩展变量在跳转时按需获取，需在设置中配置契约平台地址和Token</i><br/><br/>" +
             
             "<b>日志快速跳转 - 内置变量：</b><br/>" +
             "• <code>appId</code> - 应用ID，从 app.properties 或 app.id 文件读取<br/>" +
@@ -152,6 +216,8 @@ public class SoaHelperSettingsComponent {
             .addLabeledComponent("SOA方法快速跳转：", tablePanel, true)
             .addVerticalGap(10)
             .addLabeledComponent("日志快速跳转：", logTablePanel, true)
+            .addVerticalGap(10)
+            .addComponent(extFieldsPanel)
             .addComponentFillVertically(helpLabel, 0)
             .getPanel();
     }
@@ -246,6 +312,17 @@ public class SoaHelperSettingsComponent {
         }
     }
     
+    /**
+     * 根据扩展字段开关状态，启用或禁用子控件
+     */
+    private void updateExtendedFieldsEnabled() {
+        boolean enabled = extendedFieldsCheckBox.isSelected();
+        momBaseUrlField.setEnabled(enabled);
+        momAccessTokenField.setEnabled(enabled);
+        momTimeoutSpinner.setEnabled(enabled);
+        momCacheTtlSpinner.setEnabled(enabled);
+    }
+    
     // ===== 公共方法 =====
     
     public JPanel getPanel() {
@@ -255,19 +332,47 @@ public class SoaHelperSettingsComponent {
     public boolean isModified(SoaHelperSettings settings) {
         return enabledCheckBox.isSelected() != settings.isEnabled() 
             || !tableModel.getOptions().equals(settings.getJumpOptions())
-            || !logTableModel.getOptions().equals(settings.getLogJumpOptions());
+            || !logTableModel.getOptions().equals(settings.getLogJumpOptions())
+            || extendedFieldsCheckBox.isSelected() != settings.isExtendedFieldsEnabled()
+            || !momBaseUrlField.getText().equals(settings.getMomBaseUrl())
+            || !new String(momAccessTokenField.getPassword()).equals(settings.getMomAccessToken())
+            || (int) momTimeoutSpinner.getValue() != settings.getMomTimeout()
+            || (int) momCacheTtlSpinner.getValue() != settings.getMomCacheTtl();
     }
     
     public void apply(SoaHelperSettings settings) {
         settings.setEnabled(enabledCheckBox.isSelected());
         settings.setJumpOptions(new ArrayList<>(tableModel.getOptions()));
         settings.setLogJumpOptions(new ArrayList<>(logTableModel.getOptions()));
+        settings.setExtendedFieldsEnabled(extendedFieldsCheckBox.isSelected());
+        settings.setMomBaseUrl(momBaseUrlField.getText());
+        settings.setMomAccessToken(new String(momAccessTokenField.getPassword()));
+        settings.setMomTimeout((int) momTimeoutSpinner.getValue());
+        settings.setMomCacheTtl((int) momCacheTtlSpinner.getValue());
     }
     
     public void reset(SoaHelperSettings settings) {
         enabledCheckBox.setSelected(settings.isEnabled());
         tableModel.setOptions(settings.getJumpOptions());
         logTableModel.setOptions(settings.getLogJumpOptions());
+        extendedFieldsCheckBox.setSelected(settings.isExtendedFieldsEnabled());
+        momBaseUrlField.setText(settings.getMomBaseUrl());
+        momAccessTokenField.setText(settings.getMomAccessToken());
+        momTimeoutSpinner.setValue(settings.getMomTimeout());
+        momCacheTtlSpinner.setValue(settings.getMomCacheTtl());
+        updateExtendedFieldsEnabled();
+    }
+    
+    public boolean isExtendedFieldsEnabled() {
+        return extendedFieldsCheckBox.isSelected();
+    }
+    
+    public String getMomBaseUrl() {
+        return momBaseUrlField.getText();
+    }
+    
+    public String getMomAccessToken() {
+        return new String(momAccessTokenField.getPassword());
     }
     
     // ===== SOA 跳转选项表格模型 =====
@@ -492,6 +597,7 @@ public class SoaHelperSettingsComponent {
         private final JCheckBox enabledCheckBox;
         private final JTextArea previewArea;
         private final TemplateParser templateParser;
+        private JLabel extHintLabel;
         
         public JumpOptionDialog(@Nullable JumpOption option) {
             super(true);
@@ -591,9 +697,19 @@ public class SoaHelperSettingsComponent {
             JScrollPane previewScrollPane = new JScrollPane(previewArea);
             panel.add(previewScrollPane, gbc);
             
-            // 启用
+            // 扩展变量提示
             gbc.gridx = 0;
             gbc.gridy = 3;
+            gbc.gridwidth = 2;
+            gbc.weighty = 0;
+            gbc.fill = GridBagConstraints.HORIZONTAL;
+            extHintLabel = new JLabel("");
+            extHintLabel.setFont(extHintLabel.getFont().deriveFont(Font.ITALIC, 11f));
+            panel.add(extHintLabel, gbc);
+            
+            // 启用
+            gbc.gridx = 0;
+            gbc.gridy = 4;
             gbc.gridwidth = 2;
             gbc.weighty = 0;
             gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -613,9 +729,25 @@ public class SoaHelperSettingsComponent {
                 Map<String, String> sampleVars = new HashMap<>();
                 sampleVars.put("appId", "12345");
                 sampleVars.put("methodName", "getUserInfo");
+                sampleVars.put("projectId", "67890");
+                sampleVars.put("momVersion", "3");
+                sampleVars.put("serviceCode", "sample.service");
                 
                 String result = templateParser.parse(template, sampleVars);
                 previewArea.setText(result);
+                
+                // 检查模板是否使用了扩展变量
+                Set<String> extendedVarNames = Set.of("projectId", "momVersion", "serviceCode");
+                boolean usesExtended = extendedVarNames.stream()
+                        .anyMatch(v -> template.contains("${" + v + "}"));
+                if (extHintLabel != null) {
+                    if (usesExtended && !SoaHelperSettings.getInstance().isExtendedFieldsEnabled()) {
+                        extHintLabel.setText("该模板使用了扩展变量，请确保在设置中启用扩展字段功能");
+                        extHintLabel.setForeground(new Color(200, 130, 0));
+                    } else {
+                        extHintLabel.setText("");
+                    }
+                }
             } catch (Exception e) {
                 previewArea.setText("解析错误: " + e.getMessage());
             }

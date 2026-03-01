@@ -35,6 +35,18 @@ public class SoaHelperSettingsConfigurable implements Configurable {
     
     @Override
     public void apply() throws ConfigurationException {
+        // 验证扩展字段配置
+        if (settingsComponent.isExtendedFieldsEnabled()) {
+            if (settingsComponent.getMomBaseUrl() == null 
+                    || settingsComponent.getMomBaseUrl().trim().isEmpty()) {
+                throw new ConfigurationException("启用扩展字段时，契约平台地址不能为空");
+            }
+            if (settingsComponent.getMomAccessToken() == null 
+                    || settingsComponent.getMomAccessToken().trim().isEmpty()) {
+                throw new ConfigurationException("启用扩展字段时，Access Token 不能为空");
+            }
+        }
+
         SoaHelperSettings settings = SoaHelperSettings.getInstance();
         settingsComponent.apply(settings);
     }

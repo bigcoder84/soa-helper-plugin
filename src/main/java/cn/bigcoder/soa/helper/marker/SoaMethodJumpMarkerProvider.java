@@ -3,15 +3,20 @@ package cn.bigcoder.soa.helper.marker;
 import cn.bigcoder.soa.helper.settings.JumpOption;
 import cn.bigcoder.soa.helper.util.SoaMethodUtil;
 import cn.bigcoder.soa.helper.settings.SoaHelperSettings;
-import cn.bigcoder.soa.helper.util.TemplateParser;
 import cn.bigcoder.soa.helper.util.AppIdUtil;
 import cn.bigcoder.soa.helper.util.NotifyUtil;
+import cn.bigcoder.soa.helper.variable.*;
+import cn.bigcoder.soa.helper.variable.impl.BasicVariableGroup;
+import cn.bigcoder.soa.helper.variable.impl.MomApiVariableGroup;
 import com.intellij.codeInsight.daemon.LineMarkerInfo;
 import com.intellij.codeInsight.daemon.LineMarkerProvider;
 import com.intellij.ide.BrowserUtil;
 import com.intellij.openapi.editor.markup.GutterIconRenderer;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleUtilCore;
+import com.intellij.openapi.progress.ProgressIndicator;
+import com.intellij.openapi.progress.ProgressManager;
+import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.ui.popup.PopupStep;
@@ -39,6 +44,11 @@ public class SoaMethodJumpMarkerProvider implements LineMarkerProvider {
      * 携程海豚图标 - 用于 SOA 日志跳转
      */
     public static final Icon METHOD_ICON = IconLoader.getIcon("/icons/methodIcon.svg", SoaMethodJumpMarkerProvider.class);
+
+    /**
+     * MOM API 变量组单例 —— 所有跳转共享同一个实例（共享缓存）
+     */
+    private static final MomApiVariableGroup MOM_API_GROUP = new MomApiVariableGroup();
 
     @Override
     public @Nullable LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement element) {
@@ -102,8 +112,7 @@ public class SoaMethodJumpMarkerProvider implements LineMarkerProvider {
         // 如果只有一个跳转选项，直接跳转
         if (jumpOptions.size() == 1) {
             JumpOption option = jumpOptions.get(0);
-            String url = buildUrlFromTemplate(option.getUrlTemplate(), appId, methodName);
-            BrowserUtil.browse(url);
+            performJump(project, option.getUrlTemplate(), appId, methodName);
             return;
         }
 
@@ -117,9 +126,7 @@ public class SoaMethodJumpMarkerProvider implements LineMarkerProvider {
             @Override
             public @Nullable PopupStep<?> onChosen(JumpOption selectedValue, boolean finalChoice) {
                 return doFinalStep(() -> {
-                    // 使用模板解析器构建 URL
-                    String url = buildUrlFromTemplate(selectedValue.getUrlTemplate(), appId, methodName);
-                    BrowserUtil.browse(url);
+                    performJump(project, selectedValue.getUrlTemplate(), appId, methodName);
                 });
             }
         };
@@ -140,20 +147,65 @@ public class SoaMethodJumpMarkerProvider implements LineMarkerProvider {
     }
 
     /**
-     * 根据模板构建 URL
-     *
-     * @param template URL 模板
-     * @param appId 应用 ID
-     * @param methodName 方法名
-     * @return 构建后的 URL
+     * 执行跳转 —— 按需懒加载扩展变量。
+     * 三条路径：
+     * 1. 快速路径：模板没用扩展变量 → 直接跳转
+     * 2. 缓存路径：用了扩展变量，缓存命中 → 直接跳转
+     * 3. 异步路径：用了扩展变量，缓存未命中 → 进度框 + 后台请求
      */
-    private String buildUrlFromTemplate(String template, String appId, String methodName) {
-        Map<String, String> variables = new HashMap<>();
-        variables.put("appId", appId);
-        variables.put("methodName", methodName);
+    private void performJump(Project project, String urlTemplate, String appId, String methodName) {
+        Map<String, String> basicVars = new HashMap<>();
+        basicVars.put("appId", appId);
+        basicVars.put("methodName", methodName);
 
-        TemplateParser parser = new TemplateParser();
-        return parser.parse(template, variables);
+        // 构建 Registry
+        VariableGroupRegistry registry = new VariableGroupRegistry();
+        registry.register(new BasicVariableGroup(appId, methodName));
+        registry.register(MOM_API_GROUP);
+
+        TemplateResolver resolver = new TemplateResolver(registry);
+
+        // 判断是否需要异步加载
+        if (!resolver.needsAsyncResolve(urlTemplate, basicVars)) {
+            // 快速路径 或 缓存路径：同步解析
+            try {
+                String url = resolver.resolve(urlTemplate, basicVars);
+                BrowserUtil.browse(url);
+            } catch (VariableResolveException e) {
+                NotifyUtil.showError(project, "跳转失败：" + e.getMessage());
+            }
+            return;
+        }
+
+        // 异步路径：显示进度对话框
+        ProgressManager.getInstance().run(new Task.Modal(project, "正在获取扩展字段...", true) {
+            private String resolvedUrl;
+            private VariableResolveException error;
+
+            @Override
+            public void run(@NotNull ProgressIndicator indicator) {
+                indicator.setIndeterminate(true);
+                try {
+                    resolvedUrl = resolver.resolve(urlTemplate, basicVars);
+                } catch (VariableResolveException e) {
+                    error = e;
+                }
+            }
+
+            @Override
+            public void onSuccess() {
+                if (resolvedUrl != null) {
+                    BrowserUtil.browse(resolvedUrl);
+                } else if (error != null) {
+                    NotifyUtil.showError(project, "扩展字段获取失败：" + error.getMessage());
+                }
+            }
+
+            @Override
+            public void onCancel() {
+                // 用户取消，静默退出
+            }
+        });
     }
 }
 
