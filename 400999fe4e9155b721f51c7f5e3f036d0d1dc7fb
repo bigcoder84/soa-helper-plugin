@@ -1,0 +1,53 @@
+src/main/java/cn/bigcoder/soa/helper/variable/impl/MomApiVariableGroup.java
+  12ede4a4901c4ce2 1-203
+src/main/java/cn/bigcoder/soa/helper/variable/TemplateResolver.java
+  41c2f226157a86a8 1-122
+src/main/java/cn/bigcoder/soa/helper/settings/SoaHelperSettings.java
+  f324bbd52ba27657 32-56,126-165
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "0.1.0-beta",
+  "base_commit_sha": "400999fe4e9155b721f51c7f5e3f036d0d1dc7fb",
+  "prompts": {
+    "12ede4a4901c4ce2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3561cdb32ffe8tlZd56znf2tPz",
+        "model": "github-copilot/claude-opus-4.6"
+      },
+      "human_author": "bigcoder84 <bigcoder84@gmail.com>",
+      "messages": [],
+      "total_additions": 203,
+      "total_deletions": 0,
+      "accepted_lines": 203,
+      "overriden_lines": 0
+    },
+    "41c2f226157a86a8": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3561d5fd2ffeC5TfP5GkUxQIPm",
+        "model": "github-copilot/claude-opus-4.6"
+      },
+      "human_author": "bigcoder84 <bigcoder84@gmail.com>",
+      "messages": [],
+      "total_additions": 122,
+      "total_deletions": 0,
+      "accepted_lines": 122,
+      "overriden_lines": 0
+    },
+    "f324bbd52ba27657": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_3561d35e4ffeRVtbafwZHoogRO",
+        "model": "github-copilot/claude-opus-4.6"
+      },
+      "human_author": "bigcoder84 <bigcoder84@gmail.com>",
+      "messages": [],
+      "total_additions": 65,
+      "total_deletions": 0,
+      "accepted_lines": 65,
+      "overriden_lines": 0
+    }
+  }
+}
