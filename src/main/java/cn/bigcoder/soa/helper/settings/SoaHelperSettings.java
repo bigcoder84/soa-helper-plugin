@@ -29,6 +29,31 @@ public class SoaHelperSettings implements PersistentStateComponent<SoaHelperSett
     
     private List<LogJumpOption> logJumpOptions = new ArrayList<>();
     
+    /**
+     * 扩展字段开关
+     */
+    private boolean extendedFieldsEnabled = false;
+
+    /**
+     * MOM 契约平台 API 基础 URL
+     */
+    private String momBaseUrl = "";
+
+    /**
+     * MOM 契约平台 Access Token
+     */
+    private String momAccessToken = "";
+
+    /**
+     * API 请求超时时间（毫秒）
+     */
+    private int momTimeout = 5000;
+
+    /**
+     * 缓存 TTL（秒）
+     */
+    private int momCacheTtl = 300;
+    
     public SoaHelperSettings() {
         // 初始化默认配置
         initDefaultOptions();
@@ -98,6 +123,46 @@ public class SoaHelperSettings implements PersistentStateComponent<SoaHelperSett
         this.logJumpOptions = logJumpOptions;
     }
     
+    public boolean isExtendedFieldsEnabled() {
+        return extendedFieldsEnabled;
+    }
+
+    public void setExtendedFieldsEnabled(boolean extendedFieldsEnabled) {
+        this.extendedFieldsEnabled = extendedFieldsEnabled;
+    }
+
+    public String getMomBaseUrl() {
+        return momBaseUrl;
+    }
+
+    public void setMomBaseUrl(String momBaseUrl) {
+        this.momBaseUrl = momBaseUrl;
+    }
+
+    public String getMomAccessToken() {
+        return momAccessToken;
+    }
+
+    public void setMomAccessToken(String momAccessToken) {
+        this.momAccessToken = momAccessToken;
+    }
+
+    public int getMomTimeout() {
+        return momTimeout;
+    }
+
+    public void setMomTimeout(int momTimeout) {
+        this.momTimeout = momTimeout;
+    }
+
+    public int getMomCacheTtl() {
+        return momCacheTtl;
+    }
+
+    public void setMomCacheTtl(int momCacheTtl) {
+        this.momCacheTtl = momCacheTtl;
+    }
+
     /**
      * 获取所有启用的日志跳转选项
      */
