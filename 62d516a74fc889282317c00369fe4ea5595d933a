@@ -1,0 +1,29 @@
+src/main/java/cn/bigcoder/soa/helper/variable/VariableResolveException.java
+  d46a79589a1bb4e5 1-14
+src/main/java/cn/bigcoder/soa/helper/variable/impl/BasicVariableGroup.java
+  d46a79589a1bb4e5 1-43
+src/main/java/cn/bigcoder/soa/helper/variable/VariableGroup.java
+  d46a79589a1bb4e5 1-38
+src/main/java/cn/bigcoder/soa/helper/variable/VariableGroupRegistry.java
+  d46a79589a1bb4e5 1-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "0.1.0-beta",
+  "base_commit_sha": "62d516a74fc889282317c00369fe4ea5595d933a",
+  "prompts": {
+    "d46a79589a1bb4e5": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_35620a3ccffexzgM53y6xfPZXZ",
+        "model": "github-copilot/claude-opus-4.6"
+      },
+      "human_author": "bigcoder84 <bigcoder84@gmail.com>",
+      "messages": [],
+      "total_additions": 135,
+      "total_deletions": 0,
+      "accepted_lines": 135,
+      "overriden_lines": 0
+    }
+  }
+}
