@@ -11,6 +11,7 @@ import cn.bigcoder.soa.helper.variable.impl.MomApiVariableGroup;
 import com.intellij.codeInsight.daemon.LineMarkerInfo;
 import com.intellij.codeInsight.daemon.LineMarkerProvider;
 import com.intellij.ide.BrowserUtil;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.markup.GutterIconRenderer;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleUtilCore;
@@ -39,6 +40,8 @@ import java.util.Map;
  * 在实现了 @BaijiContract 注解接口的类的方法旁边显示图标
  */
 public class SoaMethodJumpMarkerProvider implements LineMarkerProvider {
+
+    private static final Logger LOG = Logger.getInstance(SoaMethodJumpMarkerProvider.class);
 
     /**
      * 携程海豚图标 - 用于 SOA 日志跳转
@@ -87,9 +90,14 @@ public class SoaMethodJumpMarkerProvider implements LineMarkerProvider {
                     // 获取 appId
                     String appId = AppIdUtil.getAppId(module);
                     if (appId == null || appId.isEmpty()) {
+                        LOG.warn("SOA jump aborted: appId not found, method=" + methodName
+                                + ", module=" + module.getName());
                         NotifyUtil.showError(project, "无法找到 app.properties 或 app.id 配置");
                         return;
                     }
+
+                    LOG.info("SOA jump click: appId=" + appId + ", methodName=" + methodName
+                            + ", module=" + module.getName());
 
                     // 创建环境选择的弹出菜单
                     showEnvironmentPopup(e, project, appId, methodName);
@@ -103,6 +111,8 @@ public class SoaMethodJumpMarkerProvider implements LineMarkerProvider {
         // 获取启用的跳转选项
         SoaHelperSettings settings = SoaHelperSettings.getInstance();
         List<JumpOption> jumpOptions = settings.getEnabledJumpOptions();
+        LOG.debug("SOA jump options loaded: appId=" + appId + ", methodName=" + methodName
+                + ", enabledOptionCount=" + jumpOptions.size());
 
         if (jumpOptions.isEmpty()) {
             NotifyUtil.showError(project, "未配置跳转项，请前往“设置->SOA Helper”配置跳转项");
@@ -112,6 +122,7 @@ public class SoaMethodJumpMarkerProvider implements LineMarkerProvider {
         // 如果只有一个跳转选项，直接跳转
         if (jumpOptions.size() == 1) {
             JumpOption option = jumpOptions.get(0);
+            LOG.info("SOA jump direct route: option=" + option.getName());
             performJump(project, option.getUrlTemplate(), appId, methodName);
             return;
         }
@@ -154,6 +165,9 @@ public class SoaMethodJumpMarkerProvider implements LineMarkerProvider {
      * 3. 异步路径：用了扩展变量，缓存未命中 → 进度框 + 后台请求
      */
     private void performJump(Project project, String urlTemplate, String appId, String methodName) {
+        LOG.info("SOA jump start: appId=" + appId + ", methodName=" + methodName
+                + ", template=" + urlTemplate);
+
         Map<String, String> basicVars = new HashMap<>();
         basicVars.put("appId", appId);
         basicVars.put("methodName", methodName);
@@ -170,12 +184,17 @@ public class SoaMethodJumpMarkerProvider implements LineMarkerProvider {
             // 快速路径 或 缓存路径：同步解析
             try {
                 String url = resolver.resolve(urlTemplate, basicVars);
+                LOG.info("SOA jump resolved sync: url=" + url);
                 BrowserUtil.browse(url);
             } catch (VariableResolveException e) {
+                LOG.warn("SOA jump sync resolve failed: appId=" + appId + ", methodName=" + methodName
+                        + ", message=" + e.getMessage(), e);
                 NotifyUtil.showError(project, "跳转失败：" + e.getMessage());
             }
             return;
         }
+
+        LOG.info("SOA jump requires async extended fields: appId=" + appId + ", methodName=" + methodName);
 
         // 异步路径：显示进度对话框
         ProgressManager.getInstance().run(new Task.Modal(project, "正在获取扩展字段...", true) {
@@ -195,8 +214,11 @@ public class SoaMethodJumpMarkerProvider implements LineMarkerProvider {
             @Override
             public void onSuccess() {
                 if (resolvedUrl != null) {
+                    LOG.info("SOA jump resolved async: url=" + resolvedUrl);
                     BrowserUtil.browse(resolvedUrl);
                 } else if (error != null) {
+                    LOG.warn("SOA jump async resolve failed: appId=" + appId + ", methodName=" + methodName
+                            + ", message=" + error.getMessage(), error);
                     NotifyUtil.showError(project, "扩展字段获取失败：" + error.getMessage());
                 }
             }
@@ -208,4 +230,3 @@ public class SoaMethodJumpMarkerProvider implements LineMarkerProvider {
         });
     }
 }
-

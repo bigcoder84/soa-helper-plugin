@@ -4,6 +4,7 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.PersistentStateComponent;
 import com.intellij.openapi.components.State;
 import com.intellij.openapi.components.Storage;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.util.xmlb.XmlSerializerUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -19,6 +20,8 @@ import java.util.List;
     storages = @Storage("SoaHelperSettings.xml")
 )
 public class SoaHelperSettings implements PersistentStateComponent<SoaHelperSettings> {
+
+    private static final Logger LOG = Logger.getInstance(SoaHelperSettings.class);
     
     /**
      * 总开关：是否启用 SOA 方法跳转功能
@@ -84,6 +87,13 @@ public class SoaHelperSettings implements PersistentStateComponent<SoaHelperSett
     @Override
     public void loadState(@NotNull SoaHelperSettings state) {
         XmlSerializerUtil.copyBean(state, this);
+        LOG.info("SOA settings loaded: enabled=" + enabled
+                + ", extendedFieldsEnabled=" + extendedFieldsEnabled
+                + ", momBaseUrl=" + safeValue(momBaseUrl)
+                + ", tokenConfigured=" + (momAccessToken != null && !momAccessToken.isEmpty())
+                + ", timeoutMs=" + momTimeout
+                + ", cacheTtlSec=" + momCacheTtl
+                + ", jumpOptionCount=" + jumpOptions.size());
     }
     
     public boolean isEnabled() {
@@ -175,5 +185,11 @@ public class SoaHelperSettings implements PersistentStateComponent<SoaHelperSett
         }
         return enabled;
     }
-}
 
+    private static String safeValue(String value) {
+        if (value == null || value.isBlank()) {
+            return "<empty>";
+        }
+        return value;
+    }
+}
