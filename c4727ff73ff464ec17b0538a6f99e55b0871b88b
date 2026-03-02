@@ -1,0 +1,29 @@
+src/main/java/cn/bigcoder/soa/helper/variable/TemplateResolver.java
+  8f9ab67dc9479fa4 23
+src/main/java/cn/bigcoder/soa/helper/variable/VariableGroup.java
+  8f9ab67dc9479fa4 14
+src/main/java/cn/bigcoder/soa/helper/ui/SoaHelperSettingsComponent.java
+  8f9ab67dc9479fa4 118,740
+src/main/java/cn/bigcoder/soa/helper/variable/impl/MomApiVariableGroup.java
+  8f9ab67dc9479fa4 147-149,154-177
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "0.1.0-beta",
+  "base_commit_sha": "c4727ff73ff464ec17b0538a6f99e55b0871b88b",
+  "prompts": {
+    "8f9ab67dc9479fa4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_35653b157ffehE8BzSm0PRJ0sc",
+        "model": "github-copilot/claude-opus-4.6"
+      },
+      "human_author": "bigcoder84 <bigcoder84@gmail.com>",
+      "messages": [],
+      "total_additions": 31,
+      "total_deletions": 6,
+      "accepted_lines": 31,
+      "overriden_lines": 0
+    }
+  }
+}
