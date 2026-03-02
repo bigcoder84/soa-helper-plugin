@@ -18,13 +18,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * MOM 契约平台变量组。
- * 通过 HTTP API 获取 projectId、momVersion、serviceCode。
+ * 通过 HTTP API 获取 momProjectId、momVersion、serviceCode。
  * 内置按 appId 的 TTL 缓存，避免重复请求。
  */
 public class MomApiVariableGroup implements VariableGroup {
 
     private static final Set<String> VARIABLE_NAMES = Set.of(
-            "projectId", "momVersion", "serviceCode"
+            "momProjectId", "momVersion", "serviceCode"
     );
 
     /** 缓存：appId → CacheEntry */
@@ -144,12 +144,37 @@ public class MomApiVariableGroup implements VariableGroup {
     }
 
     /**
-     * 解析 API 响应 JSON，按 appId 精确匹配
+     * 解析 API 响应 JSON，按 appId 精确匹配。
+     * 响应格式：{"status": {"code": 0, "message": "OK"}, "body": [...]}
+     * 也兼容直接返回 JSON 数组的情况。
      */
     private Map<String, String> parseResponse(String responseBody, String appId)
             throws VariableResolveException {
         try {
-            JsonArray array = JsonParser.parseString(responseBody).getAsJsonArray();
+            JsonElement root = JsonParser.parseString(responseBody);
+
+            // 解包：支持 {"status":..., "body":[...]} 和裸数组两种格式
+            JsonArray array;
+            if (root.isJsonObject()) {
+                JsonObject rootObj = root.getAsJsonObject();
+                // 检查业务状态码
+                if (rootObj.has("status")) {
+                    JsonObject status = rootObj.getAsJsonObject("status");
+                    int code = status.has("code") ? status.get("code").getAsInt() : -1;
+                    if (code != 0) {
+                        String message = status.has("message") ? status.get("message").getAsString() : "未知错误";
+                        throw new VariableResolveException("契约平台业务错误：" + message);
+                    }
+                }
+                if (!rootObj.has("body") || !rootObj.get("body").isJsonArray()) {
+                    throw new VariableResolveException("契约平台响应缺少 body 数组字段");
+                }
+                array = rootObj.getAsJsonArray("body");
+            } else if (root.isJsonArray()) {
+                array = root.getAsJsonArray();
+            } else {
+                throw new VariableResolveException("契约平台响应格式异常：既非对象也非数组");
+            }
 
             JsonObject matched = null;
             for (JsonElement element : array) {
@@ -166,7 +191,7 @@ public class MomApiVariableGroup implements VariableGroup {
             }
 
             Map<String, String> result = new HashMap<>();
-            result.put("projectId", String.valueOf(matched.get("id").getAsInt()));
+            result.put("momProjectId", String.valueOf(matched.get("id").getAsInt()));
             result.put("momVersion", String.valueOf(matched.get("version").getAsInt()));
             result.put("serviceCode", matched.get("serviceCode").getAsString());
             return result;

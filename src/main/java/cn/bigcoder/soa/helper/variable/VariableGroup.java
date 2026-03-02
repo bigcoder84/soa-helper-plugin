@@ -11,7 +11,7 @@ import java.util.Set;
 public interface VariableGroup {
 
     /**
-     * 该组提供的所有变量名（如 {"projectId", "momVersion", "serviceCode"}）
+     * 该组提供的所有变量名（如 {"momProjectId", "momVersion", "serviceCode"}）
      */
     Set<String> getVariableNames();
 

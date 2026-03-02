@@ -20,7 +20,7 @@ public class TemplateResolver {
 
     /**
      * 匹配纯变量占位符 ${name}，不匹配函数调用 ${name(...)}
-     * 注意：也需要匹配嵌套在函数参数中的变量，如 ${lower(${projectId})} 中的 projectId
+     * 注意：也需要匹配嵌套在函数参数中的变量，如 ${lower(${momProjectId})} 中的 momProjectId
      */
     private static final Pattern UNRESOLVED_VAR_PATTERN = Pattern.compile("\\$\\{(\\w+)\\}");
 

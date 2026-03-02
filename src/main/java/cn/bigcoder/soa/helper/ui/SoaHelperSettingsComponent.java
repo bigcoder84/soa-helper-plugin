@@ -115,7 +115,7 @@ public class SoaHelperSettingsComponent {
         JPanel logTablePanel = logDecorator.createPanel();
         
         // ===== 扩展字段配置 =====
-        extendedFieldsCheckBox = new JCheckBox("启用扩展字段（projectId、momVersion、serviceCode）", false);
+        extendedFieldsCheckBox = new JCheckBox("启用扩展字段（momProjectId、momVersion、serviceCode）", false);
         extendedFieldsCheckBox.setToolTipText("启用后可在 URL 模板中使用契约平台提供的扩展变量");
         
         momBaseUrlField = new JTextField(40);
@@ -180,7 +180,7 @@ public class SoaHelperSettingsComponent {
             "• <code>methodName</code> - SOA 方法名，如：getUserInfo<br/><br/>" +
             
             "<b>SOA方法跳转 - 扩展变量（需启用扩展字段）：</b><br/>" +
-            "• <code>projectId</code> - 契约平台项目ID<br/>" +
+            "• <code>momProjectId</code> - 契约平台项目ID<br/>" +
             "• <code>momVersion</code> - 契约版本号<br/>" +
             "• <code>serviceCode</code> - 服务代码<br/>" +
             "<i>注：扩展变量在跳转时按需获取，需在设置中配置契约平台地址和Token</i><br/><br/>" +
@@ -729,7 +729,7 @@ public class SoaHelperSettingsComponent {
                 Map<String, String> sampleVars = new HashMap<>();
                 sampleVars.put("appId", "12345");
                 sampleVars.put("methodName", "getUserInfo");
-                sampleVars.put("projectId", "67890");
+                sampleVars.put("momProjectId", "67890");
                 sampleVars.put("momVersion", "3");
                 sampleVars.put("serviceCode", "sample.service");
                 
@@ -737,7 +737,7 @@ public class SoaHelperSettingsComponent {
                 previewArea.setText(result);
                 
                 // 检查模板是否使用了扩展变量
-                Set<String> extendedVarNames = Set.of("projectId", "momVersion", "serviceCode");
+                Set<String> extendedVarNames = Set.of("momProjectId", "momVersion", "serviceCode");
                 boolean usesExtended = extendedVarNames.stream()
                         .anyMatch(v -> template.contains("${" + v + "}"));
                 if (extHintLabel != null) {
