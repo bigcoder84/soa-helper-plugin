@@ -291,26 +291,44 @@ public class TemplateParser {
             return arg.toString();
         } else {
             // 没有引号，使用括号深度匹配（原有逻辑）
-            int depth = 1; // 括号深度
-            
+            int depth = 1;
+
             while (i < text.length() && depth > 0) {
                 char c = text.charAt(i);
-                
-                if (c == '(') {
+
+                if (c == '\'' || c == '"') {
+                    char stringQuote = c;
+                    arg.append(c);
+                    i++;
+                    while (i < text.length()) {
+                        char sc = text.charAt(i);
+                        arg.append(sc);
+                        i++;
+                        if (sc == '\\') {
+                            if (i < text.length()) {
+                                arg.append(text.charAt(i));
+                                i++;
+                            }
+                        } else if (sc == stringQuote) {
+                            break;
+                        }
+                    }
+                } else if (c == '(') {
                     depth++;
                     arg.append(c);
+                    i++;
                 } else if (c == ')') {
                     depth--;
                     if (depth > 0) {
                         arg.append(c);
                     }
+                    i++;
                 } else {
                     arg.append(c);
+                    i++;
                 }
-                
-                i++;
             }
-            
+
             endPos[0] = i;
             return arg.toString();
         }
