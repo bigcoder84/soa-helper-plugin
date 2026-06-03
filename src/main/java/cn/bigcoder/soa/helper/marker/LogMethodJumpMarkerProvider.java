@@ -252,7 +252,9 @@ public class LogMethodJumpMarkerProvider implements LineMarkerProvider {
         String normalizedTemplate = PARAMS_PATTERN.matcher(template).replaceAll("\\${params_$1}");
 
         TemplateParser parser = new TemplateParser();
-        return parser.parse(normalizedTemplate, variables);
+        String url = parser.parse(normalizedTemplate, variables);
+        System.out.println("[SOA-Helper-Debug] Generated URL: " + url);
+        return url;
     }
 
     /**
