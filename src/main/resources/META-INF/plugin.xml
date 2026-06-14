@@ -42,6 +42,9 @@
         <!-- SOA 日志跳转 LineMarker -->
         <codeInsight.lineMarkerProvider language="JAVA"
                                         implementationClass="cn.bigcoder.soa.helper.marker.SoaMethodJumpMarkerProvider"/>
+        <!-- 日志方法快速跳转 LineMarker -->
+        <codeInsight.lineMarkerProvider language="JAVA"
+                                        implementationClass="cn.bigcoder.soa.helper.marker.LogMethodJumpMarkerProvider"/>
     </extensions>
 
     <actions>

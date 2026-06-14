@@ -4,6 +4,7 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.PersistentStateComponent;
 import com.intellij.openapi.components.State;
 import com.intellij.openapi.components.Storage;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.util.xmlb.XmlSerializerUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -19,6 +20,8 @@ import java.util.List;
     storages = @Storage("SoaHelperSettings.xml")
 )
 public class SoaHelperSettings implements PersistentStateComponent<SoaHelperSettings> {
+
+    private static final Logger LOG = Logger.getInstance(SoaHelperSettings.class);
     
     /**
      * 总开关：是否启用 SOA 方法跳转功能
@@ -26,6 +29,33 @@ public class SoaHelperSettings implements PersistentStateComponent<SoaHelperSett
     private boolean enabled = true;
     
     private List<JumpOption> jumpOptions = new ArrayList<>();
+    
+    private List<LogJumpOption> logJumpOptions = new ArrayList<>();
+    
+    /**
+     * 扩展字段开关
+     */
+    private boolean extendedFieldsEnabled = false;
+
+    /**
+     * MOM 契约平台 API 基础 URL
+     */
+    private String momBaseUrl = "";
+
+    /**
+     * MOM 契约平台 Access Token
+     */
+    private String momAccessToken = "";
+
+    /**
+     * API 请求超时时间（毫秒）
+     */
+    private int momTimeout = 5000;
+
+    /**
+     * 缓存 TTL（秒）
+     */
+    private int momCacheTtl = 300;
     
     public SoaHelperSettings() {
         // 初始化默认配置
@@ -57,6 +87,13 @@ public class SoaHelperSettings implements PersistentStateComponent<SoaHelperSett
     @Override
     public void loadState(@NotNull SoaHelperSettings state) {
         XmlSerializerUtil.copyBean(state, this);
+        LOG.info("SOA settings loaded: enabled=" + enabled
+                + ", extendedFieldsEnabled=" + extendedFieldsEnabled
+                + ", momBaseUrl=" + safeValue(momBaseUrl)
+                + ", tokenConfigured=" + (momAccessToken != null && !momAccessToken.isEmpty())
+                + ", timeoutMs=" + momTimeout
+                + ", cacheTtlSec=" + momCacheTtl
+                + ", jumpOptionCount=" + jumpOptions.size());
     }
     
     public boolean isEnabled() {
@@ -87,5 +124,72 @@ public class SoaHelperSettings implements PersistentStateComponent<SoaHelperSett
         }
         return enabled;
     }
-}
+    
+    public List<LogJumpOption> getLogJumpOptions() {
+        return logJumpOptions;
+    }
+    
+    public void setLogJumpOptions(List<LogJumpOption> logJumpOptions) {
+        this.logJumpOptions = logJumpOptions;
+    }
+    
+    public boolean isExtendedFieldsEnabled() {
+        return extendedFieldsEnabled;
+    }
 
+    public void setExtendedFieldsEnabled(boolean extendedFieldsEnabled) {
+        this.extendedFieldsEnabled = extendedFieldsEnabled;
+    }
+
+    public String getMomBaseUrl() {
+        return momBaseUrl;
+    }
+
+    public void setMomBaseUrl(String momBaseUrl) {
+        this.momBaseUrl = momBaseUrl;
+    }
+
+    public String getMomAccessToken() {
+        return momAccessToken;
+    }
+
+    public void setMomAccessToken(String momAccessToken) {
+        this.momAccessToken = momAccessToken;
+    }
+
+    public int getMomTimeout() {
+        return momTimeout;
+    }
+
+    public void setMomTimeout(int momTimeout) {
+        this.momTimeout = momTimeout;
+    }
+
+    public int getMomCacheTtl() {
+        return momCacheTtl;
+    }
+
+    public void setMomCacheTtl(int momCacheTtl) {
+        this.momCacheTtl = momCacheTtl;
+    }
+
+    /**
+     * 获取所有启用的日志跳转选项
+     */
+    public List<LogJumpOption> getEnabledLogJumpOptions() {
+        List<LogJumpOption> enabled = new ArrayList<>();
+        for (LogJumpOption option : logJumpOptions) {
+            if (option.isEnabled()) {
+                enabled.add(option);
+            }
+        }
+        return enabled;
+    }
+
+    private static String safeValue(String value) {
+        if (value == null || value.isBlank()) {
+            return "<empty>";
+        }
+        return value;
+    }
+}

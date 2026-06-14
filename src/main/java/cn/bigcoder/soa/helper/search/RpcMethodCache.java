@@ -33,7 +33,11 @@ public class RpcMethodCache {
     private static final Map<Project, RpcMethodCache> instances = new ConcurrentHashMap<>();
 
     private final Project project;
-    private final Set<RpcMethodInfo> methodCache = new HashSet<>();
+    private final Set<RpcMethodInfo> methodCache = ConcurrentHashMap.newKeySet();
+    /**
+     * 全量扫描后记录的已知 SOA 类文件路径，用于增量监听过滤
+     */
+    private final Set<String> trackedFilePaths = ConcurrentHashMap.newKeySet();
     private boolean projectIndexReady;
     /**
      * 索引构建成功钩子
@@ -82,9 +86,8 @@ public class RpcMethodCache {
      * 带进度指示器的扫描方法 - 分批处理，定期释放读锁
      */
     private void scanRpcMethodsWithProgressBatched(ProgressIndicator indicator) {
-        synchronized (this) {
-            methodCache.clear();
-        }
+        methodCache.clear();
+        trackedFilePaths.clear();
         
         // 触发soa服务加载前置钩子
         executeSoaMethodLoadBeforeHook();
@@ -181,6 +184,8 @@ public class RpcMethodCache {
     }
 
     private void processRpcClass(PsiClass psiClass) {
+        // 记录该 SOA 类的文件路径，用于后续增量监听
+        trackedFilePaths.add(psiClass.getContainingFile().getVirtualFile().getPath());
         // 处理类中的所有方法
         for (PsiMethod method : psiClass.getMethods()) {
             // 使用宽松模式判断：有 Override 注解的方法默认为RPC方法
@@ -310,6 +315,7 @@ public class RpcMethodCache {
     public void updateCacheForFile(PsiFile file) {
         try {
             if (file instanceof PsiJavaFile javaFile) {
+                String filePath = javaFile.getVirtualFile().getPath();
                 for (PsiClass psiClass : javaFile.getClasses()) {
                     // 移除该类之前的所有方法
                     removeMethodsFromClass(psiClass.getQualifiedName());
@@ -317,6 +323,9 @@ public class RpcMethodCache {
                     // 如果是RPC实现类，重新添加其方法
                     if (SoaMethodUtil.isImplementBaijiContractAnnotatedInterface(psiClass)) {
                         processRpcClass(psiClass);
+                    } else {
+                        // 不再是 SOA 类，移除文件路径跟踪
+                        trackedFilePaths.remove(filePath);
                     }
                 }
             }
@@ -335,6 +344,21 @@ public class RpcMethodCache {
         }
         // 修复：实际移除缓存中指定类的方法
         methodCache.removeIf(method -> className.equals(method.className()));
+    }
+
+    /**
+     * 判断文件是否是已知的 SOA 类文件
+     */
+    public boolean isTrackedFile(String filePath) {
+        return trackedFilePaths.contains(filePath);
+    }
+
+    /**
+     * 移除已跟踪的文件及其缓存（用于文件删除场景）
+     */
+    public void removeTrackedFile(String filePath) {
+        trackedFilePaths.remove(filePath);
+        methodCache.removeIf(method -> filePath.equals(method.filePath()));
     }
 
     /**
