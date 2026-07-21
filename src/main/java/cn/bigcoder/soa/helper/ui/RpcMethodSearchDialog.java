@@ -36,7 +36,6 @@ import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.ScrollPaneConstants;
-import org.apache.commons.collections.CollectionUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -319,7 +318,7 @@ public class RpcMethodSearchDialog extends DialogWrapper {
         // 索引加载完成后显示历史记录
         List<RpcMethodHistoryInfo> history = historyManager.getHistories();
         List<RpcMethodInfo> rpcMethodInfos = cache.searchAll();
-        if (CollectionUtils.isEmpty(rpcMethodInfos)) {
+        if (rpcMethodInfos == null || rpcMethodInfos.isEmpty()) {
             resultList.setListData(new RpcMethodInfo[0]);
             return;
         }
@@ -347,7 +346,7 @@ public class RpcMethodSearchDialog extends DialogWrapper {
             // 合并历史方法和剩余方法
             List<RpcMethodInfo> combinedList = new ArrayList<>(historyList);
             // 添加空方法，用于分隔历史方法和剩余方法
-            if (CollectionUtils.isNotEmpty(historyList)) {
+            if (historyList != null && !historyList.isEmpty()) {
                 combinedList.add(new RpcMethodInfo(PLUGIN_SEPARATOR, null, null, 0));
             }
             combinedList.addAll(remainingMethods);
@@ -448,22 +447,28 @@ public class RpcMethodSearchDialog extends DialogWrapper {
 
     @Override
     public void dispose() {
-        // 保存或清除当前搜索词
-        String currentQuery = searchField.getText();
-        String projectKey = getProjectKey();
-        
-        if (currentQuery != null && !currentQuery.trim().isEmpty()) {
-            // 如果搜索词不为空，保存它
-            lastSearchQueries.put(projectKey, currentQuery.trim());
-        } else {
-            // 如果搜索词为空，清除记录，下次打开不再自动填充
-            lastSearchQueries.remove(projectKey);
+        // 防御：dispose 可能在构造函数完成前被触发（新版 IDEA 的 Disposer 时序变化），
+        // 此时 cache / searchField / loadIndexHookId 可能尚未初始化。
+        if (searchField != null) {
+            // 保存或清除当前搜索词
+            String currentQuery = searchField.getText();
+            String projectKey = getProjectKey();
+            
+            if (currentQuery != null && !currentQuery.trim().isEmpty()) {
+                // 如果搜索词不为空，保存它
+                lastSearchQueries.put(projectKey, currentQuery.trim());
+            } else {
+                // 如果搜索词为空，清除记录，下次打开不再自动填充
+                lastSearchQueries.remove(projectKey);
+            }
         }
         
         // 调用父类的dispose()方法，确保基础资源被正确释放
         super.dispose();
-        // 删除钩子，防止内存泄露
-        cache.removeIndexLoadHook(loadIndexHookId);
+        // 删除钩子，防止内存泄露（removeIndexLoadHook 内部已做 null 校验）
+        if (cache != null) {
+            cache.removeIndexLoadHook(loadIndexHookId);
+        }
     }
     
     /**

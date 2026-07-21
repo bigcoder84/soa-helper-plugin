@@ -65,6 +65,10 @@ public class RpcMethodCache {
     }
 
     public void removeIndexLoadHook(String hookId) {
+        if (hookId == null) {
+            // ConcurrentHashMap 不允许 null key，防御 dispose() 在构造完成前被调用的场景
+            return;
+        }
         indexLoadHooks.remove(hookId);
     }
 
