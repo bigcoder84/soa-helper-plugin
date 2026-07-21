@@ -1,0 +1,30 @@
+src/main/java/cn/bigcoder/soa/helper/ui/RpcMethodSearchDialog.java
+  s_3c4bb48470984e::t_a59159960a4138 450-463,468-471
+  s_3c4bb48470984e::t_b08aeecd1117cd 349
+  s_3c4bb48470984e::t_b6396ec5c1668e 321
+build.gradle.kts
+  h_0eaaf16e4270da 8
+src/main/java/cn/bigcoder/soa/helper/search/RpcMethodCache.java
+  s_3c4bb48470984e::t_0fb5a59493b37c 68-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.35-trip",
+  "base_commit_sha": "ef417272db30ed163352c040519534e7fb33c42c",
+  "prompts": {},
+  "humans": {
+    "h_0eaaf16e4270da": {
+      "author": "bigcoder84 <bigcoder84@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_3c4bb48470984e": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_07bb87591ffeOmSNmDOEfAoLbr",
+        "model": "claude-glm-5.2[1M]"
+      },
+      "human_author": "bigcoder84 <bigcoder84@gmail.com>"
+    }
+  }
+}
