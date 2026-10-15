@@ -17,9 +17,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * SOA Helper 设置面板组件
@@ -207,7 +207,10 @@ public class SoaHelperSettingsComponent {
             "• 所有变量必须用 <code>${}</code> 包裹，不支持 <code>$变量名</code> 语法<br/>" +
             "• 函数参数中的变量也必须用 <code>${}</code> 包裹<br/>" +
             "• 参数包含括号等特殊字符时，建议用引号包裹避免歧义<br/>" +
-            "• 支持任意层级的函数嵌套" +
+            "• 支持任意层级的函数嵌套<br/><br/>" +
+            
+            "<b>SOA方法跳转 - 路由条件表达式：</b><br/>" +
+            RouteExpressionHelp.SECTION +
             "</body></html>");
         
         mainPanel = FormBuilder.createFormBuilder()
@@ -342,8 +345,9 @@ public class SoaHelperSettingsComponent {
     
     public void apply(SoaHelperSettings settings) {
         settings.setEnabled(enabledCheckBox.isSelected());
-        settings.setJumpOptions(new ArrayList<>(tableModel.getOptions()));
-        settings.setLogJumpOptions(new ArrayList<>(logTableModel.getOptions()));
+        // 写入副本，避免表格里的勾选操作直接改到已保存的配置，导致 isModified 失效
+        settings.setJumpOptions(tableModel.getOptions().stream().map(JumpOption::copy).collect(Collectors.toList()));
+        settings.setLogJumpOptions(logTableModel.getOptions().stream().map(LogJumpOption::copy).collect(Collectors.toList()));
         settings.setExtendedFieldsEnabled(extendedFieldsCheckBox.isSelected());
         settings.setMomBaseUrl(momBaseUrlField.getText());
         settings.setMomAccessToken(new String(momAccessTokenField.getPassword()));
@@ -418,10 +422,22 @@ public class SoaHelperSettingsComponent {
                 case 1:
                     return option.getName();
                 case 2:
-                    return option.getUrlTemplate();
+                    return formatTemplateColumn(option);
                 default:
                     return null;
             }
+        }
+        
+        /**
+         * 配置了路由时，在兜底模板前标注路由数量（放在前面，避免长 URL 截断后看不到）
+         */
+        private static String formatTemplateColumn(JumpOption option) {
+            String template = option.getUrlTemplate() != null ? option.getUrlTemplate() : "";
+            int routeCount = option.getRoutes().size();
+            if (routeCount == 0) {
+                return template;
+            }
+            return "[" + routeCount + " 条路由] " + template;
         }
         
         @Override
@@ -586,179 +602,6 @@ public class SoaHelperSettingsComponent {
                 options.add(option.copy());
             }
             fireTableDataChanged();
-        }
-    }
-    
-    // ===== SOA 跳转选项编辑对话框 =====
-    
-    private static class JumpOptionDialog extends DialogWrapper {
-        private final JTextField nameField;
-        private final JTextArea urlTemplateArea;
-        private final JCheckBox enabledCheckBox;
-        private final JTextArea previewArea;
-        private final TemplateParser templateParser;
-        private JLabel extHintLabel;
-        
-        public JumpOptionDialog(@Nullable JumpOption option) {
-            super(true);
-            
-            nameField = new JTextField(30);
-            urlTemplateArea = new JTextArea(8, 50);
-            urlTemplateArea.setLineWrap(true);
-            urlTemplateArea.setWrapStyleWord(false);
-            enabledCheckBox = new JCheckBox("启用该选项", true);
-            
-            previewArea = new JTextArea(4, 50);
-            previewArea.setLineWrap(true);
-            previewArea.setWrapStyleWord(true);
-            previewArea.setEditable(false);
-            previewArea.setBackground(new Color(245, 245, 245));
-            
-            templateParser = new TemplateParser();
-            
-            if (option != null) {
-                nameField.setText(option.getName());
-                urlTemplateArea.setText(option.getUrlTemplate());
-                enabledCheckBox.setSelected(option.isEnabled());
-                setTitle("编辑跳转选项");
-            } else {
-                setTitle("添加跳转选项");
-            }
-            
-            urlTemplateArea.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-                @Override
-                public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                    updatePreview();
-                }
-                
-                @Override
-                public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                    updatePreview();
-                }
-                
-                @Override
-                public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                    updatePreview();
-                }
-            });
-            
-            init();
-            updatePreview();
-        }
-        
-        @Nullable
-        @Override
-        protected JComponent createCenterPanel() {
-            JPanel panel = new JPanel(new GridBagLayout());
-            GridBagConstraints gbc = new GridBagConstraints();
-            gbc.insets = new Insets(5, 5, 5, 5);
-            gbc.fill = GridBagConstraints.HORIZONTAL;
-            
-            // 名称
-            gbc.gridx = 0;
-            gbc.gridy = 0;
-            gbc.weightx = 0;
-            panel.add(new JLabel("名称："), gbc);
-            
-            gbc.gridx = 1;
-            gbc.weightx = 1;
-            panel.add(nameField, gbc);
-            
-            // URL 模板
-            gbc.gridx = 0;
-            gbc.gridy = 1;
-            gbc.weightx = 0;
-            gbc.anchor = GridBagConstraints.NORTHWEST;
-            panel.add(new JLabel("URL 模板："), gbc);
-            
-            gbc.gridx = 1;
-            gbc.weightx = 1;
-            gbc.fill = GridBagConstraints.BOTH;
-            gbc.weighty = 0.6;
-            JScrollPane scrollPane = new JScrollPane(urlTemplateArea);
-            panel.add(scrollPane, gbc);
-            
-            // 预览
-            gbc.gridx = 0;
-            gbc.gridy = 2;
-            gbc.weightx = 0;
-            gbc.weighty = 0;
-            gbc.fill = GridBagConstraints.HORIZONTAL;
-            gbc.anchor = GridBagConstraints.NORTHWEST;
-            JLabel previewLabel = new JLabel("预览（示例值）：");
-            previewLabel.setToolTipText("appId=12345, methodName=getUserInfo");
-            panel.add(previewLabel, gbc);
-            
-            gbc.gridx = 1;
-            gbc.gridy = 2;
-            gbc.weightx = 1;
-            gbc.weighty = 0.4;
-            gbc.fill = GridBagConstraints.BOTH;
-            JScrollPane previewScrollPane = new JScrollPane(previewArea);
-            panel.add(previewScrollPane, gbc);
-            
-            // 扩展变量提示
-            gbc.gridx = 0;
-            gbc.gridy = 3;
-            gbc.gridwidth = 2;
-            gbc.weighty = 0;
-            gbc.fill = GridBagConstraints.HORIZONTAL;
-            extHintLabel = new JLabel("");
-            extHintLabel.setFont(extHintLabel.getFont().deriveFont(Font.ITALIC, 11f));
-            panel.add(extHintLabel, gbc);
-            
-            // 启用
-            gbc.gridx = 0;
-            gbc.gridy = 4;
-            gbc.gridwidth = 2;
-            gbc.weighty = 0;
-            gbc.fill = GridBagConstraints.HORIZONTAL;
-            panel.add(enabledCheckBox, gbc);
-            
-            return panel;
-        }
-        
-        private void updatePreview() {
-            String template = urlTemplateArea.getText();
-            if (template == null || template.trim().isEmpty()) {
-                previewArea.setText("（请输入 URL 模板）");
-                return;
-            }
-            
-            try {
-                Map<String, String> sampleVars = new HashMap<>();
-                sampleVars.put("appId", "12345");
-                sampleVars.put("methodName", "getUserInfo");
-                sampleVars.put("momProjectId", "67890");
-                sampleVars.put("momVersion", "3");
-                sampleVars.put("serviceCode", "sample.service");
-                
-                String result = templateParser.parse(template, sampleVars);
-                previewArea.setText(result);
-                
-                // 检查模板是否使用了扩展变量
-                Set<String> extendedVarNames = Set.of("momProjectId", "momVersion", "serviceCode");
-                boolean usesExtended = extendedVarNames.stream()
-                        .anyMatch(v -> template.contains("${" + v + "}"));
-                if (extHintLabel != null) {
-                    if (usesExtended && !SoaHelperSettings.getInstance().isExtendedFieldsEnabled()) {
-                        extHintLabel.setText("该模板使用了扩展变量，请确保在设置中启用扩展字段功能");
-                        extHintLabel.setForeground(new Color(200, 130, 0));
-                    } else {
-                        extHintLabel.setText("");
-                    }
-                }
-            } catch (Exception e) {
-                previewArea.setText("解析错误: " + e.getMessage());
-            }
-        }
-        
-        public JumpOption getJumpOption() {
-            return new JumpOption(
-                nameField.getText().trim(),
-                urlTemplateArea.getText().trim(),
-                enabledCheckBox.isSelected()
-            );
         }
     }
     

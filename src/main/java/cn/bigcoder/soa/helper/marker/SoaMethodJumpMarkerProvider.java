@@ -1,6 +1,8 @@
 package cn.bigcoder.soa.helper.marker;
 
 import cn.bigcoder.soa.helper.settings.JumpOption;
+import cn.bigcoder.soa.helper.settings.JumpRoute;
+import cn.bigcoder.soa.helper.settings.ResolvedJump;
 import cn.bigcoder.soa.helper.util.SoaMethodUtil;
 import cn.bigcoder.soa.helper.settings.SoaHelperSettings;
 import cn.bigcoder.soa.helper.util.AppIdUtil;
@@ -31,6 +33,7 @@ import org.jetbrains.annotations.Nullable;
 import javax.swing.SwingUtilities;
 import java.awt.*;
 import java.awt.event.MouseEvent;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -119,25 +122,40 @@ public class SoaMethodJumpMarkerProvider implements LineMarkerProvider {
             return;
         }
 
+        // 按路由条件选出每个跳转项实际使用的模板；条件出错的路由跳过并提示
+        Map<String, String> routeVariables = JumpRoute.conditionVariables(appId, methodName);
+        List<ResolvedJump> resolvedJumps = new ArrayList<>(jumpOptions.size());
+        for (JumpOption option : jumpOptions) {
+            resolvedJumps.add(option.resolve(routeVariables, (route, error) -> {
+                LOG.warn("SOA jump route skipped: option=" + option.getName() + ", route=" + route.getName()
+                        + ", appId=" + appId + ", methodName=" + methodName + ", reason=" + error.getMessage());
+                NotifyUtil.showWarning(project, "跳转项「" + option.getName() + "」的路由「" + route.getName()
+                        + "」条件计算出错，已跳过：" + error.getMessage());
+            }));
+        }
+
         // 如果只有一个跳转选项，直接跳转
-        if (jumpOptions.size() == 1) {
-            JumpOption option = jumpOptions.get(0);
-            LOG.info("SOA jump direct route: option=" + option.getName());
-            performJump(project, option.getUrlTemplate(), appId, methodName);
+        if (resolvedJumps.size() == 1) {
+            ResolvedJump resolved = resolvedJumps.get(0);
+            LOG.info("SOA jump direct route: option=" + resolved.optionName()
+                    + ", matchedRoute=" + resolved.matchedRouteName());
+            performJump(project, resolved.urlTemplate(), appId, methodName);
             return;
         }
 
         // 创建列表弹出菜单步骤
-        BaseListPopupStep<JumpOption> step = new BaseListPopupStep<JumpOption>(null, jumpOptions) {
+        BaseListPopupStep<ResolvedJump> step = new BaseListPopupStep<ResolvedJump>(null, resolvedJumps) {
             @Override
-            public @NotNull String getTextFor(JumpOption value) {
-                return value.getName();
+            public @NotNull String getTextFor(ResolvedJump value) {
+                return value.displayName();
             }
 
             @Override
-            public @Nullable PopupStep<?> onChosen(JumpOption selectedValue, boolean finalChoice) {
+            public @Nullable PopupStep<?> onChosen(ResolvedJump selectedValue, boolean finalChoice) {
                 return doFinalStep(() -> {
-                    performJump(project, selectedValue.getUrlTemplate(), appId, methodName);
+                    LOG.info("SOA jump chosen: option=" + selectedValue.optionName()
+                            + ", matchedRoute=" + selectedValue.matchedRouteName());
+                    performJump(project, selectedValue.urlTemplate(), appId, methodName);
                 });
             }
         };
