@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "cn.bigcoder.soa.tool"
-version = "1.0.4"
+version = "1.0.5"
 
 // Add IntelliJ Platform SDK dependencies
 repositories {
@@ -13,6 +13,12 @@ repositories {
     maven {
         url = uri("https://cache-redirector.jetbrains.com/www.jetbrains.com/intellij-repository/releases")
     }
+}
+
+dependencies {
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testImplementation("org.assertj:assertj-core:3.25.3")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 intellij {
@@ -30,6 +36,10 @@ tasks {
     }
     withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
         kotlinOptions.jvmTarget = "17"
+    }
+
+    test {
+        useJUnitPlatform()
     }
 
     patchPluginXml {
